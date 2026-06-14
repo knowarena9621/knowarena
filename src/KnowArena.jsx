@@ -4,9 +4,6 @@ import { teacherLogin, studentSignup, studentLogin, logout as fbLogout } from ".
 import { getStudents, approveStudent, rejectStudent } from "./firebase/students";
 import { getActiveTestsForClass } from "./firebase/tests";
 import { getQuestionsForTest } from "./firebase/questions";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "./firebase/config";
 import TeacherTestsV2 from "./TestManagement";
 
 // ─── BRAND ASSETS ─────────────────────────────────────────────────────────────
@@ -139,7 +136,6 @@ export default function KnowArena() {
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [tests, setTests] = useState(MOCK_TESTS);
   const [quizQuestions, setQuizQuestions] = useState(SAMPLE_QUESTIONS);
-  const [authChecked, setAuthChecked] = useState(false);
   const [teacherTab, setTeacherTab] = useState("dashboard");
   const [toast, setToast] = useState(null);
 
@@ -161,69 +157,11 @@ export default function KnowArena() {
     }
   };
 
-  // Load + normalize published tests for a student's class so they render correctly
-  const loadStudentTests = async (cls) => {
-    try {
-      const liveTests = await getActiveTestsForClass(cls);
-      setTests(liveTests.map(t => ({
-        ...t,
-        status: "active", // published tests are immediately available to students
-        marks: t.totalMarks,
-        scheduled: t.scheduledAt,
-      })));
-    } catch (e) {
-      console.error("Failed to load tests:", e);
-      showToast("Failed to load tests", "error");
-    }
-  };
-
-  // Restore session on page load/refresh (Firebase Auth persists across reloads)
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) { setAuthChecked(true); return; }
-      try {
-        const teacherDoc = await getDoc(doc(db, "teachers", user.uid));
-        if (teacherDoc.exists()) {
-          setRole("teacher");
-          setCurrentTeacher({ uid: user.uid, ...teacherDoc.data() });
-          setTeacherTab("dashboard");
-          setScreen(SC.TEACHER);
-          await refreshStudents();
-          setAuthChecked(true);
-          return;
-        }
-        const studentDoc = await getDoc(doc(db, "students", user.uid));
-        if (studentDoc.exists()) {
-          const stu = { uid: user.uid, ...studentDoc.data() };
-          setCurrentStudent(stu);
-          if (stu.status === "pending" || stu.status === "rejected") {
-            setScreen(SC.PENDING_APPROVAL);
-          } else {
-            setScreen(SC.STUDENT_DASH);
-            await loadStudentTests(stu.cls);
-          }
-          setAuthChecked(true);
-          return;
-        }
-        setAuthChecked(true);
-      } catch (e) {
-        console.error("Session restore failed:", e);
-        setAuthChecked(true);
-      }
-    });
-    return () => unsub();
-  }, []);
+  const dm = darkMode;
   const bg = dm ? T.bgD : T.bg;
   const cardBg = dm ? T.cardD : T.white;
   const textC = dm ? "#f1f5f9" : T.text;
   const borderC = dm ? T.borderD : T.border;
-
-  // ── SESSION RESTORE LOADING ─────────────────────────────────────────────────
-  if(!authChecked) return (
-    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <img src={LOGO_ICON} alt="KnowArena" style={{width:64,height:64,opacity:0.9}}/>
-    </div>
-  );
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if(screen===SC.LOGIN) return (
@@ -297,7 +235,13 @@ export default function KnowArena() {
             else {
               setScreen(SC.STUDENT_DASH);
               showToast(`Welcome back, ${stu.name.split(" ")[0]}! 🎉`);
-              await loadStudentTests(stu.cls);
+              try {
+                const liveTests = await getActiveTestsForClass(stu.cls);
+                setTests(liveTests);
+              } catch (e) {
+                console.error("Failed to load tests:", e);
+                showToast("Failed to load tests", "error");
+              }
             }
           }} onBack={()=>setScreen(SC.LOGIN)} onSignup={()=>setScreen(SC.STUDENT_SIGNUP)} showToast={showToast}/>
       </div>
