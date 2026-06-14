@@ -43,7 +43,7 @@ const Btn = ({children,onClick,variant="primary",style={},disabled=false}) => {
   return <button disabled={disabled} onClick={onClick} style={{...st,...style}}>{children}</button>;
 };
 
-export default function StudentApp({ student, onLogout }) {
+export function StudentApp({ student, onLogout }) {
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, profile, liveTest
   const [tests, setTests] = useState([]);
   const [myResults, setMyResults] = useState([]);
