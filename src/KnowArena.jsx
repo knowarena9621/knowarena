@@ -165,7 +165,6 @@ export default function KnowArena() {
   const loadStudentTests = async (cls) => {
     try {
       const liveTests = await getActiveTestsForClass(cls);
-      showToast(`Loaded ${liveTests.length} published test(s) for Class ${cls}`, liveTests.length ? "success" : "error");
       setTests(liveTests.map(t => ({
         ...t,
         status: "active", // published tests are immediately available to students
@@ -214,8 +213,7 @@ export default function KnowArena() {
     });
     return () => unsub();
   }, []);
-
-  const dm = darkMode;
+  const bg = dm ? T.bgD : T.bg;
   const cardBg = dm ? T.cardD : T.white;
   const textC = dm ? "#f1f5f9" : T.text;
   const borderC = dm ? T.borderD : T.border;
