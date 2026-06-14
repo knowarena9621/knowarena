@@ -165,6 +165,7 @@ export default function KnowArena() {
   const loadStudentTests = async (cls) => {
     try {
       const liveTests = await getActiveTestsForClass(cls);
+      showToast(`Loaded ${liveTests.length} published test(s) for Class ${cls}`, liveTests.length ? "success" : "error");
       setTests(liveTests.map(t => ({
         ...t,
         status: "active", // published tests are immediately available to students
