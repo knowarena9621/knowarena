@@ -137,7 +137,7 @@ export default function KnowArena() {
   const [darkMode, setDarkMode] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
-  const [tests, setTests] = useState([]);
+  const [tests, setTests] = useState(MOCK_TESTS);
   const [quizQuestions, setQuizQuestions] = useState(SAMPLE_QUESTIONS);
   const [authChecked, setAuthChecked] = useState(false);
   const [teacherTab, setTeacherTab] = useState("dashboard");
@@ -161,29 +161,19 @@ export default function KnowArena() {
     }
   };
 
-  // Load + normalize published tests for a student's class
+  // Load + normalize published tests for a student's class so they render correctly
   const loadStudentTests = async (cls) => {
     try {
       const liveTests = await getActiveTestsForClass(cls);
-      const normalized = liveTests.map(t => {
-        // Convert Firestore Timestamp to readable string
-        let scheduledStr = "";
-        if (t.scheduledAt) {
-          const d = t.scheduledAt.toDate ? t.scheduledAt.toDate() : new Date(t.scheduledAt);
-          scheduledStr = d.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
-        }
-        return {
-          ...t,
-          status: "active",       // published = available to student
-          marks: t.totalMarks,    // student UI uses 'marks'
-          scheduled: scheduledStr,
-          cls: Number(t.cls),     // ensure number for filter match
-        };
-      });
-      setTests(normalized);
+      setTests(liveTests.map(t => ({
+        ...t,
+        status: "active", // published tests are immediately available to students
+        marks: t.totalMarks,
+        scheduled: t.scheduledAt,
+      })));
     } catch (e) {
       console.error("Failed to load tests:", e);
-      showToast("Could not load tests", "error");
+      showToast("Failed to load tests", "error");
     }
   };
 
@@ -1068,7 +1058,7 @@ function Analytics({students}){
 // ═══════════════════════════════════════════════════════════════════════════════
 function StudentDashboard({student,tests,onStartTest,onLogout,darkMode,setDarkMode,quizResult,bg,cardBg,textC,borderC}){
   const [tab,setTab]=useState("home");
-  const myTests=tests.filter(t=>Number(t.cls)===Number(student.cls));
+  const myTests=tests.filter(t=>t.cls===student.cls);
   const NAV=[{id:"home",icon:"🏠",label:"Home"},{id:"tests",icon:"📝",label:"My Tests"},{id:"results",icon:"📊",label:"Results"},{id:"profile",icon:"👤",label:"Profile"}];
 
   return(
