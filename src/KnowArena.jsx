@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { teacherLogin, studentSignup, studentLogin, logout as fbLogout } from "./firebase/auth";
-import { getStudents, approveStudent, rejectStudent } from "./firebase/students";
+import { getStudents, approveStudent, rejectStudent, blockStudent, unblockStudent } from "./firebase/students";
+import { getAllTests } from "./firebase/tests";
+import { getAllAttempts } from "./firebase/attempts";
 import TeacherTestsV2 from "./TestManagement";
 import StudentApp from "./StudentApp";
 
@@ -133,7 +135,8 @@ export default function KnowArena() {
   const [darkMode, setDarkMode] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
-  const [tests, setTests] = useState(MOCK_TESTS);
+  const [tests, setTests] = useState([]);
+  const [attempts, setAttempts] = useState([]);
   const [teacherTab, setTeacherTab] = useState("dashboard");
   const [toast, setToast] = useState(null);
 
@@ -153,6 +156,31 @@ export default function KnowArena() {
     } finally {
       setStudentsLoading(false);
     }
+  };
+
+  // Load all tests (drafts + published + archived) for the teacher dashboard.
+  const refreshTests = async () => {
+    try {
+      const list = await getAllTests();
+      setTests(list);
+    } catch (e) {
+      console.error("Failed to load tests:", e);
+    }
+  };
+
+  // Load all student attempts across every test, for live analytics.
+  const refreshAttempts = async () => {
+    try {
+      const list = await getAllAttempts();
+      setAttempts(list);
+    } catch (e) {
+      console.error("Failed to load attempts:", e);
+    }
+  };
+
+  // Refresh everything the teacher dashboard needs (students, tests, attempts).
+  const refreshTeacherData = async () => {
+    await Promise.all([refreshStudents(), refreshTests(), refreshAttempts()]);
   };
 
   const dm = darkMode;
@@ -211,7 +239,7 @@ export default function KnowArena() {
           <p style={{color:"rgba(255,255,255,0.7)",fontSize:13,margin:0}}>Enter your admin email & password</p>
         </div>
         <TeacherLoginForm
-          onLogin={async (teacher)=>{setRole("teacher");setCurrentTeacher(teacher);setTeacherTab("dashboard");setScreen(SC.TEACHER);showToast("Welcome, Teacher! 👋");await refreshStudents();}}
+          onLogin={async (teacher)=>{setRole("teacher");setCurrentTeacher(teacher);setTeacherTab("dashboard");setScreen(SC.TEACHER);showToast("Welcome, Teacher! 👋");await refreshTeacherData();}}
           onBack={()=>setScreen(SC.LOGIN)}
         />
       </div>
@@ -229,7 +257,7 @@ export default function KnowArena() {
         </div>
         <StudentLoginForm onLogin={(stu)=>{
             setCurrentStudent(stu);
-            if(stu.status==="pending"||stu.status==="rejected"){ setScreen(SC.PENDING_APPROVAL); }
+            if(stu.status==="pending"||stu.status==="rejected"||stu.status==="blocked"){ setScreen(SC.PENDING_APPROVAL); }
             else { setScreen(SC.STUDENT_DASH); showToast(`Welcome back, ${stu.name.split(" ")[0]}! 🎉`); }
           }} onBack={()=>setScreen(SC.LOGIN)} onSignup={()=>setScreen(SC.STUDENT_SIGNUP)} showToast={showToast}/>
       </div>
@@ -257,13 +285,15 @@ export default function KnowArena() {
   if(screen===SC.PENDING_APPROVAL && currentStudent) return (
     <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       <Card style={{maxWidth:420,textAlign:"center",padding:"36px 24px"}}>
-        <div style={{fontSize:48,marginBottom:12}}>{currentStudent.status==="rejected"?"❌":"⏳"}</div>
+        <div style={{fontSize:48,marginBottom:12}}>{currentStudent.status==="rejected"?"❌":currentStudent.status==="blocked"?"🚫":"⏳"}</div>
         <h2 style={{margin:"0 0 8px",fontSize:20,fontWeight:800,color:T.text}}>
-          {currentStudent.status==="rejected"?"Account Not Approved":"Waiting for Approval"}
+          {currentStudent.status==="rejected"?"Account Not Approved":currentStudent.status==="blocked"?"Account Blocked":"Waiting for Approval"}
         </h2>
         <p style={{color:T.textM,fontSize:14,lineHeight:1.6,margin:"0 0 20px"}}>
           {currentStudent.status==="rejected"
             ?"Your teacher has not approved this account. Please contact them directly."
+            :currentStudent.status==="blocked"
+            ?"Your access has been blocked by your teacher. Please contact them directly to restore access."
             :<>Hi <b>{currentStudent.name}</b>! Your account for <b>Class {currentStudent.cls}</b> is registered and waiting for your teacher to approve it. Once approved, you'll be able to log in and take tests.</>}
         </p>
         <Btn variant="ghost" onClick={()=>{setCurrentStudent(null);setScreen(SC.LOGIN);}} style={{width:"100%"}}>← Back to Home</Btn>
@@ -276,12 +306,14 @@ export default function KnowArena() {
     <TeacherDashboard
       students={students} setStudents={setStudents}
       tests={tests} setTests={setTests}
+      attempts={attempts}
       tab={teacherTab} setTab={setTeacherTab}
       onLogout={async ()=>{ await fbLogout(); setCurrentTeacher(null); setScreen(SC.LOGIN); }}
       darkMode={darkMode} setDarkMode={setDarkMode}
       showToast={showToast} toast={toast}
       bg={bg} cardBg={cardBg} textC={textC} borderC={borderC}
       refreshStudents={refreshStudents}
+      refreshTeacherData={refreshTeacherData}
       teacherUid={currentTeacher?.uid}
     />
   );
@@ -498,7 +530,7 @@ function StudentSignupForm({onSignup,onBack}){
 // ═══════════════════════════════════════════════════════════════════════════════
 // TEACHER DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function TeacherDashboard({students,setStudents,tests,setTests,tab,setTab,onLogout,darkMode,setDarkMode,showToast,toast,bg,cardBg,textC,borderC,refreshStudents,teacherUid}){
+function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setTab,onLogout,darkMode,setDarkMode,showToast,toast,bg,cardBg,textC,borderC,refreshStudents,refreshTeacherData,teacherUid}){
   const NAV = [
     {id:"dashboard",icon:"📊",label:"Dashboard"},
     {id:"approvals",icon:"✅",label:"Approvals"},
@@ -511,6 +543,12 @@ function TeacherDashboard({students,setStudents,tests,setTests,tab,setTab,onLogo
   const pendingCount = students.filter(s=>s.status==="pending").length;
   const rejectedCount = students.filter(s=>s.status==="rejected").length;
   const [sideOpen,setSideOpen]=useState(false);
+
+  useEffect(()=>{
+    if(tab==="dashboard"||tab==="analytics"||tab==="leaderboard"){
+      refreshTeacherData?.();
+    }
+  },[tab]);
 
   return(
     <div style={{minHeight:"100vh",background:bg,fontFamily:"'Segoe UI',system-ui,sans-serif",position:"relative",overflowX:"hidden"}}>
@@ -569,22 +607,44 @@ function TeacherDashboard({students,setStudents,tests,setTests,tab,setTab,onLogo
 
       {/* Main content */}
       <div style={{padding:"20px 16px",width:"100%",boxSizing:"border-box",overflowX:"hidden"}}>
-        {tab==="dashboard"&&<TeacherDashHome students={students} tests={tests}/>}
+        {tab==="dashboard"&&<TeacherDashHome students={students} tests={tests} attempts={attempts}/>}
         {tab==="approvals"&&<TeacherApprovals students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents}/>}
-        {tab==="students"&&<TeacherStudents students={students} setStudents={setStudents} showToast={showToast} cardBg={cardBg} textC={textC} borderC={borderC}/>}
+        {tab==="students"&&<TeacherStudents students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents} cardBg={cardBg} textC={textC} borderC={borderC}/>}
         {tab==="rejected"&&<TeacherRejected students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents}/>}
         {tab==="tests"&&<TeacherTestsV2 T={T} Card={Card} Btn={Btn} Badge={Badge} CLASSES={CLASSES} CLASS_SUBJECTS={CLASS_SUBJECTS} TEST_TYPES={TEST_TYPES} SUBJECT_ICONS={SUBJECT_ICONS} showToast={showToast} teacherUid={teacherUid}/>}
         {tab==="leaderboard"&&<Leaderboard students={students} cardBg={cardBg} textC={textC} borderC={borderC}/>}
-        {tab==="analytics"&&<Analytics students={students} cardBg={cardBg} textC={textC} borderC={borderC}/>}
+        {tab==="analytics"&&<Analytics students={students} attempts={attempts} tests={tests} cardBg={cardBg} textC={textC} borderC={borderC}/>}
       </div>
     </div>
   );
 }
 
 // ── Teacher Dashboard Home ─────────────────────────────────────────────────
-function TeacherDashHome({students,tests}){
-  const avgScore = Math.round(students.reduce((a,s)=>a+s.avg,0)/students.length);
-  const activeTests = tests.filter(t=>t.status==="active").length;
+function TeacherDashHome({students,tests,attempts}){
+  const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
+  const avgScore = approvedStudents.length
+    ? Math.round(approvedStudents.reduce((a,s)=>a+s.avg,0)/approvedStudents.length)
+    : 0;
+  const publishedTests = tests.filter(t=>t.status==="published").length;
+
+  // Class-wise average score, computed live from attempts.
+  const classPerf = CLASSES.map(cls=>{
+    const a = attempts.filter(at=>at.cls===cls);
+    const avg = a.length ? Math.round(a.reduce((s,at)=>s+(at.percentage??0),0)/a.length) : 0;
+    return {cls:`Class ${cls}`, avg};
+  });
+
+  // Subject-wise average score, computed live from attempts.
+  const subjects = [...new Set(tests.map(t=>t.subject).filter(Boolean))];
+  const subjectPerf = subjects.map(sub=>{
+    const a = attempts.filter(at=>at.subject===sub);
+    const avg = a.length ? Math.round(a.reduce((s,at)=>s+(at.percentage??0),0)/a.length) : 0;
+    return {sub, avg};
+  });
+
+  // Recent tests, newest first (tests are already ordered by createdAt desc).
+  const recentTests = tests.slice(0,4);
+
   return(
     <div>
       <h2 style={{margin:"0 0 6px",fontSize:24,fontWeight:800,color:T.text}}>Good morning, Teacher! 👋</h2>
@@ -592,8 +652,8 @@ function TeacherDashHome({students,tests}){
 
       {/* Stat cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:28}}>
-        <StatCard icon="👥" label="Total Students" value={students.length} color={T.blue} sub="All classes"/>
-        <StatCard icon="📝" label="Total Tests" value={tests.length} color={T.gold} sub={`${activeTests} active`}/>
+        <StatCard icon="👥" label="Total Students" value={approvedStudents.length} color={T.blue} sub="All classes"/>
+        <StatCard icon="📝" label="Total Tests" value={tests.length} color={T.gold} sub={`${publishedTests} published`}/>
         <StatCard icon="⭐" label="Avg Score" value={`${avgScore}%`} color={T.success} sub="Across all classes"/>
         <StatCard icon="🏫" label="Classes" value="7" color="#8b5cf6" sub="Class 6 to 12"/>
       </div>
@@ -603,7 +663,7 @@ function TeacherDashHome({students,tests}){
         <Card>
           <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Class-wise Average Score</h3>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={CLASS_PERF} barSize={22}>
+            <BarChart data={classPerf} barSize={22}>
               <XAxis dataKey="cls" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
               <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
               <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
@@ -613,34 +673,44 @@ function TeacherDashHome({students,tests}){
         </Card>
         <Card>
           <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Subject Performance</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={SUBJECT_PERF} barSize={22}>
-              <XAxis dataKey="sub" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-              <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-              <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
-              <Bar dataKey="avg" fill={T.gold} radius={[6,6,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
+          {subjectPerf.length===0?(
+            <p style={{color:T.textM,fontSize:13,textAlign:"center",padding:"40px 0"}}>No attempts yet.</p>
+          ):(
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={subjectPerf} barSize={22}>
+                <XAxis dataKey="sub" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+                <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+                <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
+                <Bar dataKey="avg" fill={T.gold} radius={[6,6,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </Card>
       </div>
 
       {/* Recent tests */}
       <Card>
         <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Recent Tests</h3>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {MOCK_TESTS.slice(0,4).map(t=>(
-            <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:T.bg,borderRadius:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:22}}>{SUBJECT_ICONS[t.subject]||"📝"}</span>
-                <div>
-                  <div style={{fontWeight:700,fontSize:14,color:T.text}}>{t.title}</div>
-                  <div style={{fontSize:12,color:T.textM}}>Class {t.cls} · {t.type} · {t.duration} min</div>
+        {recentTests.length===0?(
+          <p style={{color:T.textM,fontSize:13,margin:0}}>No tests created yet.</p>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {recentTests.map(t=>(
+              <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:T.bg,borderRadius:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:22}}>{SUBJECT_ICONS[t.subject]||"📝"}</span>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:14,color:T.text}}>{t.title}</div>
+                    <div style={{fontSize:12,color:T.textM}}>Class {t.cls} · {t.type} · {t.duration} min</div>
+                  </div>
                 </div>
+                <Badge color={t.status==="published"?T.success:t.status==="draft"?T.warn:T.textM}>
+                  {t.status==="published"?"● Published":t.status==="draft"?"✏️ Draft":"📦 Archived"}
+                </Badge>
               </div>
-              <Badge color={t.status==="active"?T.success:T.warn}>{t.status==="active"?"● Live":"⏰ Upcoming"}</Badge>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -767,13 +837,28 @@ function TeacherRejected({students,setStudents,showToast,refreshStudents}){
 
 
 // ── Teacher Students ───────────────────────────────────────────────────────
-function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
+function TeacherStudents({students,setStudents,showToast,refreshStudents,cardBg,textC,borderC}){
   const [showAdd,setShowAdd]=useState(false);
   const [form,setForm]=useState({name:"",cls:10,mobile:"",username:""});
   const [filterCls,setFilterCls]=useState("all");
 
-  const approvedStudents = students.filter(s=>s.status==="approved");
+  const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
   const filtered = filterCls==="all"?approvedStudents:approvedStudents.filter(s=>s.cls===Number(filterCls));
+
+  const toggleBlock=async (s)=>{
+    try{
+      if(s.status==="blocked"){
+        await unblockStudent(s.id);
+        showToast(`${s.name}'s access restored ✅`);
+      }else{
+        await blockStudent(s.id);
+        showToast(`${s.name}'s access blocked 🚫`,"error");
+      }
+      await refreshStudents();
+    }catch(e){
+      showToast("Failed to update student access","error");
+    }
+  };
 
   const addStudent=()=>{
     if(!form.name||!form.mobile||!form.username){showToast("Fill all fields","error");return;}
@@ -788,7 +873,7 @@ function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div>
           <h2 style={{margin:"0 0 4px",fontSize:22,fontWeight:800,color:T.text}}>Students</h2>
-          <p style={{margin:0,color:T.textM,fontSize:13}}>{approvedStudents.length} total students enrolled</p>
+          <p style={{margin:0,color:T.textM,fontSize:13}}>{students.filter(s=>s.status==="approved").length} total students enrolled</p>
         </div>
         <Btn onClick={()=>setShowAdd(true)}>+ Add Student</Btn>
       </div>
@@ -836,20 +921,23 @@ function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead>
               <tr style={{background:T.bg}}>
-                {["Student","Class","Mobile","Username","Tests","Avg Score","Rank"].map(h=>(
+                {["Student","Class","Mobile","Username","Tests","Avg Score","Rank","Action"].map(h=>(
                   <th key={h} style={{padding:"12px 16px",textAlign:"left",fontSize:12,fontWeight:700,color:T.textM,whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((s,i)=>(
-                <tr key={s.id} style={{borderTop:`1px solid ${T.border}`,background:i%2===0?"#fff":T.bg}}>
+                <tr key={s.id} style={{borderTop:`1px solid ${T.border}`,background:i%2===0?"#fff":T.bg,opacity:s.status==="blocked"?0.55:1}}>
                   <td style={{padding:"12px 16px"}}>
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <div style={{width:34,height:34,borderRadius:10,background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:13}}>
                         {s.name[0]}
                       </div>
-                      <span style={{fontWeight:700,fontSize:14,color:T.text}}>{s.name}</span>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:14,color:T.text}}>{s.name}</div>
+                        {s.status==="blocked"&&<div style={{fontSize:11,fontWeight:700,color:T.error}}>🚫 Blocked</div>}
+                      </div>
                     </div>
                   </td>
                   <td style={{padding:"12px 16px"}}><Badge color={T.blue}>Class {s.cls}</Badge></td>
@@ -865,6 +953,12 @@ function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
                     </div>
                   </td>
                   <td style={{padding:"12px 16px"}}><span style={{fontWeight:800,color:s.rank===1?T.gold:T.textM}}>#{s.rank}</span></td>
+                  <td style={{padding:"12px 16px"}}>
+                    <button onClick={()=>toggleBlock(s)}
+                      style={{background:s.status==="blocked"?T.success+"18":T.error+"15",color:s.status==="blocked"?T.success:T.error,border:`1px solid ${s.status==="blocked"?T.success:T.error}33`,borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                      {s.status==="blocked"?"✓ Unblock":"🚫 Block"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -878,7 +972,8 @@ function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
 // ── Leaderboard ────────────────────────────────────────────────────────────
 function Leaderboard({students,cardBg,textC,borderC}){
   const [filterCls,setFilterCls]=useState("all");
-  const filtered = (filterCls==="all"?students:students.filter(s=>s.cls===Number(filterCls)))
+  const approvedStudents = students.filter(s=>s.status==="approved");
+  const filtered = (filterCls==="all"?approvedStudents:approvedStudents.filter(s=>s.cls===Number(filterCls)))
     .slice().sort((a,b)=>b.avg-a.avg);
   const medals=["🥇","🥈","🥉"];
   return(
@@ -943,27 +1038,62 @@ function Leaderboard({students,cardBg,textC,borderC}){
 }
 
 // ── Analytics ──────────────────────────────────────────────────────────────
-function Analytics({students}){
+function Analytics({students,attempts,tests}){
+  const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
   const pieData=[
-    {name:"80–100%",value:students.filter(s=>s.avg>=80).length,color:T.success},
-    {name:"60–79%",value:students.filter(s=>s.avg>=60&&s.avg<80).length,color:T.gold},
-    {name:"Below 60%",value:students.filter(s=>s.avg<60).length,color:T.error},
+    {name:"80–100%",value:approvedStudents.filter(s=>s.avg>=80).length,color:T.success},
+    {name:"60–79%",value:approvedStudents.filter(s=>s.avg>=60&&s.avg<80).length,color:T.gold},
+    {name:"Below 60%",value:approvedStudents.filter(s=>s.avg<60).length,color:T.error},
   ];
+
+  // Score trend by month, computed live from attempt submission dates.
+  const monthly = {};
+  attempts.forEach(a=>{
+    const ts = a.submittedAt?.toDate ? a.submittedAt.toDate() : (a.submittedAt ? new Date(a.submittedAt) : null);
+    if(!ts || isNaN(ts.getTime())) return;
+    const key = ts.toLocaleString("en-US",{month:"short",year:"2-digit"});
+    (monthly[key] ||= []).push(a.percentage ?? 0);
+  });
+  const trendData = Object.entries(monthly).map(([month,vals])=>({
+    month, score: Math.round(vals.reduce((s,v)=>s+v,0)/vals.length),
+  }));
+
+  // Weak area identification: group attempts by class+subject, surface
+  // lowest-scoring combinations (below 75%).
+  const groups = {};
+  attempts.forEach(a=>{
+    if(!a.subject||!a.cls) return;
+    const key = `${a.subject}__${a.cls}`;
+    (groups[key] ||= []).push(a.percentage ?? 0);
+  });
+  const weakAreas = Object.entries(groups)
+    .map(([key,vals])=>{
+      const [sub,cls] = key.split("__");
+      return { sub, cls: `Class ${cls}`, avg: Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) };
+    })
+    .filter(w=>w.avg < 75)
+    .sort((a,b)=>a.avg-b.avg)
+    .slice(0,4);
+
   return(
     <div>
       <h2 style={{margin:"0 0 6px",fontSize:22,fontWeight:800,color:T.text}}>📈 Analytics</h2>
       <p style={{color:T.textM,fontSize:13,margin:"0 0 24px"}}>Data-driven insights for your tuition centre</p>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,marginBottom:20}}>
         <Card>
-          <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Score Trend (Class 10)</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={PROGRESS_DATA}>
-              <XAxis dataKey="month" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-              <YAxis domain={[50,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-              <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
-              <Line type="monotone" dataKey="score" stroke={T.blue} strokeWidth={3} dot={{fill:T.blue,r:4}}/>
-            </LineChart>
-          </ResponsiveContainer>
+          <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Score Trend (All Classes)</h3>
+          {trendData.length===0?(
+            <p style={{color:T.textM,fontSize:13,textAlign:"center",padding:"40px 0"}}>No test attempts yet.</p>
+          ):(
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={trendData}>
+                <XAxis dataKey="month" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+                <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+                <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
+                <Line type="monotone" dataKey="score" stroke={T.blue} strokeWidth={3} dot={{fill:T.blue,r:4}}/>
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </Card>
         <Card>
           <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Score Distribution</h3>
@@ -990,17 +1120,24 @@ function Analytics({students}){
       </div>
       <Card>
         <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Weak Area Identification</h3>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
-          {[["Physics","Class 11",68,T.warn],["Social Science","Class 9",62,T.error],["Hindi","Class 7",71,T.warn],["Chemistry","Class 12",74,T.gold]].map(([sub,cls,score,color])=>(
-            <div key={sub} style={{background:color+"12",borderRadius:12,padding:"14px 16px",border:`1px solid ${color}33`}}>
-              <div style={{fontSize:20,marginBottom:6}}>{SUBJECT_ICONS[sub]||"📘"}</div>
-              <div style={{fontWeight:700,fontSize:14,color:T.text}}>{sub}</div>
-              <div style={{fontSize:12,color:T.textM,marginBottom:8}}>{cls}</div>
-              <div style={{fontSize:20,fontWeight:900,color}}>{score}%</div>
-              <div style={{fontSize:11,color,fontWeight:600,marginTop:2}}>⚠️ Needs attention</div>
-            </div>
-          ))}
-        </div>
+        {weakAreas.length===0?(
+          <p style={{color:T.textM,fontSize:13,margin:0}}>No weak areas detected yet — attempt some tests to see insights here.</p>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
+            {weakAreas.map(w=>{
+              const color = w.avg<60?T.error:w.avg<70?T.warn:T.gold;
+              return(
+                <div key={`${w.sub}-${w.cls}`} style={{background:color+"12",borderRadius:12,padding:"14px 16px",border:`1px solid ${color}33`}}>
+                  <div style={{fontSize:20,marginBottom:6}}>{SUBJECT_ICONS[w.sub]||"📘"}</div>
+                  <div style={{fontWeight:700,fontSize:14,color:T.text}}>{w.sub}</div>
+                  <div style={{fontSize:12,color:T.textM,marginBottom:8}}>{w.cls}</div>
+                  <div style={{fontSize:20,fontWeight:900,color}}>{w.avg}%</div>
+                  <div style={{fontSize:11,color,fontWeight:600,marginTop:2}}>⚠️ Needs attention</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );

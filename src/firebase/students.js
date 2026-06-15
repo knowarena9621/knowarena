@@ -44,3 +44,13 @@ export async function approveStudent(uid) {
 export async function rejectStudent(uid) {
   await updateDoc(doc(db, "students", uid), { status: "rejected" });
 }
+
+/** Block a student's access (won't be able to log in / take tests). */
+export async function blockStudent(uid) {
+  await updateDoc(doc(db, "students", uid), { status: "blocked" });
+}
+
+/** Restore a blocked student back to approved (re-enable access). */
+export async function unblockStudent(uid) {
+  await updateDoc(doc(db, "students", uid), { status: "approved" });
+}
