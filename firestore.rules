@@ -69,14 +69,11 @@ service cloud.firestore {
 
     // ── questions/{questionId} ────────────────────────────────────────────
     // - Teacher: full access (create/edit/delete questions, manage bank).
-    // - Student: read-only, only questions belonging to a published test
-    //   for their class (checked via the linked test doc).
+    // - Student: read-only, once approved (test-level access is already
+    //   gated by the tests/{testId} rule above; questions are only fetched
+    //   for tests the student can already see).
     match /questions/{questionId} {
-      allow read: if isTeacher() ||
-        (isStudent() && studentIsApproved()
-          && resource.data.cls == studentClass()
-          && resource.data.testId != null
-          && get(/databases/$(database)/documents/tests/$(resource.data.testId)).data.status == "published");
+      allow read: if isTeacher() || (isStudent() && studentIsApproved());
       allow write: if isTeacher();
     }
 

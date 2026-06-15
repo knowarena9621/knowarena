@@ -503,11 +503,13 @@ function TeacherDashboard({students,setStudents,tests,setTests,tab,setTab,onLogo
     {id:"dashboard",icon:"📊",label:"Dashboard"},
     {id:"approvals",icon:"✅",label:"Approvals"},
     {id:"students",icon:"👥",label:"Students"},
+    {id:"rejected",icon:"🚫",label:"Rejected"},
     {id:"tests",icon:"📝",label:"Tests"},
     {id:"leaderboard",icon:"🏆",label:"Leaderboard"},
     {id:"analytics",icon:"📈",label:"Analytics"},
   ];
   const pendingCount = students.filter(s=>s.status==="pending").length;
+  const rejectedCount = students.filter(s=>s.status==="rejected").length;
   const [sideOpen,setSideOpen]=useState(false);
 
   return(
@@ -549,6 +551,9 @@ function TeacherDashboard({students,setStudents,tests,setTests,tab,setTab,onLogo
               {n.id==="approvals"&&pendingCount>0&&(
                 <span style={{marginLeft:"auto",background:T.gold,color:"#1e293b",borderRadius:20,padding:"1px 8px",fontSize:11,fontWeight:800}}>{pendingCount}</span>
               )}
+              {n.id==="rejected"&&rejectedCount>0&&(
+                <span style={{marginLeft:"auto",background:T.error,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:11,fontWeight:800}}>{rejectedCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -567,6 +572,7 @@ function TeacherDashboard({students,setStudents,tests,setTests,tab,setTab,onLogo
         {tab==="dashboard"&&<TeacherDashHome students={students} tests={tests}/>}
         {tab==="approvals"&&<TeacherApprovals students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents}/>}
         {tab==="students"&&<TeacherStudents students={students} setStudents={setStudents} showToast={showToast} cardBg={cardBg} textC={textC} borderC={borderC}/>}
+        {tab==="rejected"&&<TeacherRejected students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents}/>}
         {tab==="tests"&&<TeacherTestsV2 T={T} Card={Card} Btn={Btn} Badge={Badge} CLASSES={CLASSES} CLASS_SUBJECTS={CLASS_SUBJECTS} TEST_TYPES={TEST_TYPES} SUBJECT_ICONS={SUBJECT_ICONS} showToast={showToast} teacherUid={teacherUid}/>}
         {tab==="leaderboard"&&<Leaderboard students={students} cardBg={cardBg} textC={textC} borderC={borderC}/>}
         {tab==="analytics"&&<Analytics students={students} cardBg={cardBg} textC={textC} borderC={borderC}/>}
@@ -640,7 +646,6 @@ function TeacherDashHome({students,tests}){
   );
 }
 
-// ── Teacher Students ───────────────────────────────────────────────────────
 // ── Teacher Approvals ───────────────────────────────────────────────────────
 function TeacherApprovals({students,setStudents,showToast,refreshStudents}){
   const pending = students.filter(s=>s.status==="pending");
@@ -706,13 +711,69 @@ function TeacherApprovals({students,setStudents,showToast,refreshStudents}){
 }
 
 
+// ── Teacher Rejected ────────────────────────────────────────────────────────
+function TeacherRejected({students,setStudents,showToast,refreshStudents}){
+  const rejected = students.filter(s=>s.status==="rejected");
+
+  const reapprove=async (id)=>{
+    try{
+      await approveStudent(id);
+      await refreshStudents();
+      showToast("Student approved! ✅");
+    }catch(e){
+      showToast("Failed to approve student","error");
+    }
+  };
+
+  return(
+    <div>
+      <h2 style={{margin:"0 0 6px",fontSize:22,fontWeight:800,color:T.text}}>🚫 Rejected Requests</h2>
+      <p style={{color:T.textM,fontSize:13,margin:"0 0 20px"}}>
+        {rejected.length===0?"No rejected requests.":`${rejected.length} rejected request${rejected.length>1?"s":""} — you can approve them later`}
+      </p>
+
+      {rejected.length===0?(
+        <Card style={{textAlign:"center",padding:"40px 20px"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📭</div>
+          <p style={{color:T.textM,margin:0,fontSize:14}}>Nothing here right now.</p>
+        </Card>
+      ):(
+        <div style={{display:"grid",gap:12}}>
+          {rejected.map(s=>(
+            <Card key={s.id} style={{padding:"16px 20px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{width:44,height:44,borderRadius:12,background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:17}}>{s.name[0]}</div>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:15,color:T.text}}>{s.name}</div>
+                    <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                      <Badge color={T.blue}>Class {s.cls}</Badge>
+                      <Badge color={T.textM}>📱 {s.mobile}</Badge>
+                      <Badge color={T.textM}>@{s.username}</Badge>
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <Btn onClick={()=>reapprove(s.id)} style={{padding:"8px 18px",fontSize:13}}>✓ Approve Now</Btn>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // ── Teacher Students ───────────────────────────────────────────────────────
 function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
   const [showAdd,setShowAdd]=useState(false);
   const [form,setForm]=useState({name:"",cls:10,mobile:"",username:""});
   const [filterCls,setFilterCls]=useState("all");
 
-  const filtered = filterCls==="all"?students:students.filter(s=>s.cls===Number(filterCls));
+  const approvedStudents = students.filter(s=>s.status==="approved");
+  const filtered = filterCls==="all"?approvedStudents:approvedStudents.filter(s=>s.cls===Number(filterCls));
 
   const addStudent=()=>{
     if(!form.name||!form.mobile||!form.username){showToast("Fill all fields","error");return;}
@@ -727,7 +788,7 @@ function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div>
           <h2 style={{margin:"0 0 4px",fontSize:22,fontWeight:800,color:T.text}}>Students</h2>
-          <p style={{margin:0,color:T.textM,fontSize:13}}>{students.length} total students enrolled</p>
+          <p style={{margin:0,color:T.textM,fontSize:13}}>{approvedStudents.length} total students enrolled</p>
         </div>
         <Btn onClick={()=>setShowAdd(true)}>+ Add Student</Btn>
       </div>
