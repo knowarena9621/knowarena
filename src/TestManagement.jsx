@@ -422,13 +422,23 @@ function QuestionManagement({ T, Card, Btn, Badge, SUBJECT_ICONS, test, question
         });
         showToast("Question added ✅");
       }
-      await refreshQuestions();
       resetForm();
     } catch (e) {
-      console.error(e);
-      showToast("Failed to save question", "error");
+      console.error("saveQuestion error:", e);
+      showToast(`Failed to save question: ${e.code || e.message || "unknown error"}`, "error");
+      setSaving(false);
+      return;
     } finally {
       setSaving(false);
+    }
+
+    // Refresh list separately — if THIS fails (e.g. missing Firestore index),
+    // it should not be reported as a save failure since the question was saved.
+    try {
+      await refreshQuestions();
+    } catch (e) {
+      console.error("refreshQuestions error:", e);
+      showToast(`Question saved, but list refresh failed: ${e.code || e.message}`, "error");
     }
   };
 

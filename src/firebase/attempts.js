@@ -5,32 +5,6 @@ import {
 import { db } from "./config";
 
 const attemptsCol = collection(db, "attempts");
-const progressCol = collection(db, "attemptProgress");
-
-/**
- * Autosave in-progress answers while a student is taking a test.
- * Document ID = `${testId}_${studentId}`. Overwritten on every autosave.
- * `answers` = { [questionId]: selectedIndex }
- */
-export async function saveProgress({ testId, studentId, answers, qIdx, timeLeft }) {
-  const id = `${testId}_${studentId}`;
-  await setDoc(doc(progressCol, id), {
-    testId, studentId, answers, qIdx, timeLeft,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
-}
-
-/** Load any previously-saved in-progress answers (resume support). */
-export async function getProgress(testId, studentId) {
-  const snap = await getDoc(doc(progressCol, `${testId}_${studentId}`));
-  return snap.exists() ? snap.data() : null;
-}
-
-export async function clearProgress(testId, studentId) {
-  await setDoc(doc(progressCol, `${testId}_${studentId}`), {
-    testId, studentId, cleared: true, updatedAt: serverTimestamp(),
-  });
-}
 
 /**
  * Submit a completed test attempt.
@@ -87,18 +61,4 @@ export async function getAttemptsForStudent(studentId) {
 export async function getAllAttempts() {
   const snap = await getDocs(attemptsCol);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-/**
- * Compute a student's rank for a specific test based on percentage
- * (1 = highest). Ties share the same rank. Returns { rank, totalAttempts }.
- */
-export async function getRankForAttempt(testId, studentId) {
-  const attempts = await getAttemptsForTest(testId);
-  if (attempts.length === 0) return { rank: 1, totalAttempts: 1 };
-  const sorted = [...attempts].sort((a, b) => (b.percentage ?? 0) - (a.percentage ?? 0));
-  const me = attempts.find(a => a.studentId === studentId);
-  const myPct = me?.percentage ?? 0;
-  const rank = sorted.findIndex(a => (a.percentage ?? 0) === myPct) + 1;
-  return { rank: rank || sorted.length, totalAttempts: attempts.length };
 }

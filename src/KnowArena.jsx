@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { teacherLogin, studentSignup, studentLogin, logout as fbLogout } from "./firebase/auth";
-import { getStudents, approveStudent, rejectStudent, blockStudent, unblockStudent } from "./firebase/students";
-import { getAllTests } from "./firebase/tests";
-import { getAllAttempts } from "./firebase/attempts";
+import { getStudents, approveStudent, rejectStudent } from "./firebase/students";
+import { getActiveTestsForClass } from "./firebase/tests";
+import { getQuestionsForTest } from "./firebase/questions";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "./firebase/config";
 import TeacherTestsV2 from "./TestManagement";
-import QuestionBank from "./QuestionBank";
-import StudentApp from "./StudentApp";
 
 // ─── BRAND ASSETS ─────────────────────────────────────────────────────────────
 const LOGO_ICON = "data:image/png;base64,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"; // KnowArena icon mark (K+mountain)
@@ -136,8 +137,9 @@ export default function KnowArena() {
   const [darkMode, setDarkMode] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
-  const [tests, setTests] = useState([]);
-  const [attempts, setAttempts] = useState([]);
+  const [tests, setTests] = useState(MOCK_TESTS);
+  const [quizQuestions, setQuizQuestions] = useState(SAMPLE_QUESTIONS);
+  const [authChecked, setAuthChecked] = useState(false);
   const [teacherTab, setTeacherTab] = useState("dashboard");
   const [toast, setToast] = useState(null);
 
@@ -159,36 +161,70 @@ export default function KnowArena() {
     }
   };
 
-  // Load all tests (drafts + published + archived) for the teacher dashboard.
-  const refreshTests = async () => {
+  // Load + normalize published tests for a student's class so they render correctly
+  const loadStudentTests = async (cls) => {
     try {
-      const list = await getAllTests();
-      setTests(list);
+      const liveTests = await getActiveTestsForClass(cls);
+      setTests(liveTests.map(t => ({
+        ...t,
+        status: "active", // published tests are immediately available to students
+        marks: t.totalMarks,
+        scheduled: t.scheduledAt,
+      })));
     } catch (e) {
       console.error("Failed to load tests:", e);
+      showToast("Failed to load tests", "error");
     }
   };
 
-  // Load all student attempts across every test, for live analytics.
-  const refreshAttempts = async () => {
-    try {
-      const list = await getAllAttempts();
-      setAttempts(list);
-    } catch (e) {
-      console.error("Failed to load attempts:", e);
-    }
-  };
-
-  // Refresh everything the teacher dashboard needs (students, tests, attempts).
-  const refreshTeacherData = async () => {
-    await Promise.all([refreshStudents(), refreshTests(), refreshAttempts()]);
-  };
+  // Restore session on page load/refresh (Firebase Auth persists across reloads)
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) { setAuthChecked(true); return; }
+      try {
+        const teacherDoc = await getDoc(doc(db, "teachers", user.uid));
+        if (teacherDoc.exists()) {
+          setRole("teacher");
+          setCurrentTeacher({ uid: user.uid, ...teacherDoc.data() });
+          setTeacherTab("dashboard");
+          setScreen(SC.TEACHER);
+          await refreshStudents();
+          setAuthChecked(true);
+          return;
+        }
+        const studentDoc = await getDoc(doc(db, "students", user.uid));
+        if (studentDoc.exists()) {
+          const stu = { uid: user.uid, ...studentDoc.data() };
+          setCurrentStudent(stu);
+          if (stu.status === "pending" || stu.status === "rejected") {
+            setScreen(SC.PENDING_APPROVAL);
+          } else {
+            setScreen(SC.STUDENT_DASH);
+            await loadStudentTests(stu.cls);
+          }
+          setAuthChecked(true);
+          return;
+        }
+        setAuthChecked(true);
+      } catch (e) {
+        console.error("Session restore failed:", e);
+        setAuthChecked(true);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const dm = darkMode;
-  const bg = dm ? T.bgD : T.bg;
   const cardBg = dm ? T.cardD : T.white;
   const textC = dm ? "#f1f5f9" : T.text;
   const borderC = dm ? T.borderD : T.border;
+
+  // ── SESSION RESTORE LOADING ─────────────────────────────────────────────────
+  if(!authChecked) return (
+    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <img src={LOGO_ICON} alt="KnowArena" style={{width:64,height:64,opacity:0.9}}/>
+    </div>
+  );
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if(screen===SC.LOGIN) return (
@@ -240,7 +276,7 @@ export default function KnowArena() {
           <p style={{color:"rgba(255,255,255,0.7)",fontSize:13,margin:0}}>Enter your admin email & password</p>
         </div>
         <TeacherLoginForm
-          onLogin={async (teacher)=>{setRole("teacher");setCurrentTeacher(teacher);setTeacherTab("dashboard");setScreen(SC.TEACHER);showToast("Welcome, Teacher! 👋");await refreshTeacherData();}}
+          onLogin={async (teacher)=>{setRole("teacher");setCurrentTeacher(teacher);setTeacherTab("dashboard");setScreen(SC.TEACHER);showToast("Welcome, Teacher! 👋");await refreshStudents();}}
           onBack={()=>setScreen(SC.LOGIN)}
         />
       </div>
@@ -256,10 +292,14 @@ export default function KnowArena() {
           <h2 style={{color:"#fff",fontSize:24,fontWeight:800,margin:"0 0 4px"}}>Student Login</h2>
           <p style={{color:"rgba(255,255,255,0.7)",fontSize:13,margin:0}}>Login with your username and password</p>
         </div>
-        <StudentLoginForm onLogin={(stu)=>{
+        <StudentLoginForm onLogin={async (stu)=>{
             setCurrentStudent(stu);
-            if(stu.status==="pending"||stu.status==="rejected"||stu.status==="blocked"){ setScreen(SC.PENDING_APPROVAL); }
-            else { setScreen(SC.STUDENT_DASH); showToast(`Welcome back, ${stu.name.split(" ")[0]}! 🎉`); }
+            if(stu.status==="pending"||stu.status==="rejected"){ setScreen(SC.PENDING_APPROVAL); }
+            else {
+              setScreen(SC.STUDENT_DASH);
+              showToast(`Welcome back, ${stu.name.split(" ")[0]}! 🎉`);
+              await loadStudentTests(stu.cls);
+            }
           }} onBack={()=>setScreen(SC.LOGIN)} onSignup={()=>setScreen(SC.STUDENT_SIGNUP)} showToast={showToast}/>
       </div>
     </div>
@@ -286,15 +326,13 @@ export default function KnowArena() {
   if(screen===SC.PENDING_APPROVAL && currentStudent) return (
     <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       <Card style={{maxWidth:420,textAlign:"center",padding:"36px 24px"}}>
-        <div style={{fontSize:48,marginBottom:12}}>{currentStudent.status==="rejected"?"❌":currentStudent.status==="blocked"?"🚫":"⏳"}</div>
+        <div style={{fontSize:48,marginBottom:12}}>{currentStudent.status==="rejected"?"❌":"⏳"}</div>
         <h2 style={{margin:"0 0 8px",fontSize:20,fontWeight:800,color:T.text}}>
-          {currentStudent.status==="rejected"?"Account Not Approved":currentStudent.status==="blocked"?"Account Blocked":"Waiting for Approval"}
+          {currentStudent.status==="rejected"?"Account Not Approved":"Waiting for Approval"}
         </h2>
         <p style={{color:T.textM,fontSize:14,lineHeight:1.6,margin:"0 0 20px"}}>
           {currentStudent.status==="rejected"
             ?"Your teacher has not approved this account. Please contact them directly."
-            :currentStudent.status==="blocked"
-            ?"Your access has been blocked by your teacher. Please contact them directly to restore access."
             :<>Hi <b>{currentStudent.name}</b>! Your account for <b>Class {currentStudent.cls}</b> is registered and waiting for your teacher to approve it. Once approved, you'll be able to log in and take tests.</>}
         </p>
         <Btn variant="ghost" onClick={()=>{setCurrentStudent(null);setScreen(SC.LOGIN);}} style={{width:"100%"}}>← Back to Home</Btn>
@@ -307,24 +345,61 @@ export default function KnowArena() {
     <TeacherDashboard
       students={students} setStudents={setStudents}
       tests={tests} setTests={setTests}
-      attempts={attempts}
       tab={teacherTab} setTab={setTeacherTab}
       onLogout={async ()=>{ await fbLogout(); setCurrentTeacher(null); setScreen(SC.LOGIN); }}
       darkMode={darkMode} setDarkMode={setDarkMode}
       showToast={showToast} toast={toast}
       bg={bg} cardBg={cardBg} textC={textC} borderC={borderC}
       refreshStudents={refreshStudents}
-      refreshTeacherData={refreshTeacherData}
       teacherUid={currentTeacher?.uid}
     />
   );
 
-  // ── STUDENT APP (Dashboard + My Tests + Quiz + Results) ───────────────────
-  if((screen===SC.STUDENT_DASH||screen===SC.QUIZ||screen===SC.RESULT) && currentStudent) return (
-    <StudentApp
-      student={currentStudent}
+  // ── STUDENT DASHBOARD ──────────────────────────────────────────────────────
+  if(screen===SC.STUDENT_DASH && currentStudent) return (
+    <StudentDashboard
+      student={currentStudent} tests={tests}
+      onStartTest={async (test)=>{
+        try {
+          const qs = await getQuestionsForTest(test.id);
+          if (!qs.length) { showToast("This test has no questions yet", "error"); return; }
+          setQuizQuestions(qs.map(q=>({
+            id: q.id,
+            q: q.questionText,
+            opts: q.options,
+            ans: q.correctAnswer,
+            marks: q.marks,
+            subject: q.subject,
+          })));
+        } catch (e) {
+          console.error("Failed to load questions:", e);
+          setQuizQuestions(SAMPLE_QUESTIONS);
+        }
+        setActiveTest(test);setScreen(SC.QUIZ);
+      }}
       onLogout={async ()=>{ await fbLogout(); setCurrentStudent(null); setScreen(SC.LOGIN); }}
-      showToast={showToast}
+      darkMode={darkMode} setDarkMode={setDarkMode}
+      quizResult={quizResult}
+      bg={bg} cardBg={cardBg} textC={textC} borderC={borderC}
+    />
+  );
+
+  // ── QUIZ ───────────────────────────────────────────────────────────────────
+  if(screen===SC.QUIZ && activeTest) return (
+    <QuizScreen
+      test={activeTest} questions={quizQuestions}
+      student={currentStudent}
+      onFinish={(result)=>{setQuizResult(result);setScreen(SC.RESULT);}}
+      onQuit={()=>setScreen(SC.STUDENT_DASH)}
+    />
+  );
+
+  // ── RESULT ─────────────────────────────────────────────────────────────────
+  if(screen===SC.RESULT && quizResult) return (
+    <ResultScreen
+      result={quizResult} test={activeTest} student={currentStudent}
+      onBack={()=>setScreen(SC.STUDENT_DASH)}
+      bg={bg} cardBg={cardBg} textC={textC} borderC={borderC}
     />
   );
 
@@ -531,26 +606,17 @@ function StudentSignupForm({onSignup,onBack}){
 // ═══════════════════════════════════════════════════════════════════════════════
 // TEACHER DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setTab,onLogout,darkMode,setDarkMode,showToast,toast,bg,cardBg,textC,borderC,refreshStudents,refreshTeacherData,teacherUid}){
+function TeacherDashboard({students,setStudents,tests,setTests,tab,setTab,onLogout,darkMode,setDarkMode,showToast,toast,bg,cardBg,textC,borderC,refreshStudents,teacherUid}){
   const NAV = [
     {id:"dashboard",icon:"📊",label:"Dashboard"},
     {id:"approvals",icon:"✅",label:"Approvals"},
     {id:"students",icon:"👥",label:"Students"},
-    {id:"rejected",icon:"🚫",label:"Rejected"},
     {id:"tests",icon:"📝",label:"Tests"},
-    {id:"questionbank",icon:"📚",label:"Question Bank"},
     {id:"leaderboard",icon:"🏆",label:"Leaderboard"},
     {id:"analytics",icon:"📈",label:"Analytics"},
   ];
   const pendingCount = students.filter(s=>s.status==="pending").length;
-  const rejectedCount = students.filter(s=>s.status==="rejected").length;
   const [sideOpen,setSideOpen]=useState(false);
-
-  useEffect(()=>{
-    if(tab==="dashboard"||tab==="analytics"||tab==="leaderboard"){
-      refreshTeacherData?.();
-    }
-  },[tab]);
 
   return(
     <div style={{minHeight:"100vh",background:bg,fontFamily:"'Segoe UI',system-ui,sans-serif",position:"relative",overflowX:"hidden"}}>
@@ -591,9 +657,6 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
               {n.id==="approvals"&&pendingCount>0&&(
                 <span style={{marginLeft:"auto",background:T.gold,color:"#1e293b",borderRadius:20,padding:"1px 8px",fontSize:11,fontWeight:800}}>{pendingCount}</span>
               )}
-              {n.id==="rejected"&&rejectedCount>0&&(
-                <span style={{marginLeft:"auto",background:T.error,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:11,fontWeight:800}}>{rejectedCount}</span>
-              )}
             </button>
           ))}
         </nav>
@@ -609,45 +672,21 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
 
       {/* Main content */}
       <div style={{padding:"20px 16px",width:"100%",boxSizing:"border-box",overflowX:"hidden"}}>
-        {tab==="dashboard"&&<TeacherDashHome students={students} tests={tests} attempts={attempts}/>}
+        {tab==="dashboard"&&<TeacherDashHome students={students} tests={tests}/>}
         {tab==="approvals"&&<TeacherApprovals students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents}/>}
-        {tab==="students"&&<TeacherStudents students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents} cardBg={cardBg} textC={textC} borderC={borderC}/>}
-        {tab==="rejected"&&<TeacherRejected students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents}/>}
+        {tab==="students"&&<TeacherStudents students={students} setStudents={setStudents} showToast={showToast} cardBg={cardBg} textC={textC} borderC={borderC}/>}
         {tab==="tests"&&<TeacherTestsV2 T={T} Card={Card} Btn={Btn} Badge={Badge} CLASSES={CLASSES} CLASS_SUBJECTS={CLASS_SUBJECTS} TEST_TYPES={TEST_TYPES} SUBJECT_ICONS={SUBJECT_ICONS} showToast={showToast} teacherUid={teacherUid}/>}
-        {tab==="questionbank"&&<QuestionBank T={T} Card={Card} Btn={Btn} Badge={Badge} CLASSES={CLASSES} CLASS_SUBJECTS={CLASS_SUBJECTS} SUBJECT_ICONS={SUBJECT_ICONS} showToast={showToast} teacherUid={teacherUid}/>}
         {tab==="leaderboard"&&<Leaderboard students={students} cardBg={cardBg} textC={textC} borderC={borderC}/>}
-        {tab==="analytics"&&<Analytics students={students} attempts={attempts} tests={tests} cardBg={cardBg} textC={textC} borderC={borderC}/>}
+        {tab==="analytics"&&<Analytics students={students} cardBg={cardBg} textC={textC} borderC={borderC}/>}
       </div>
     </div>
   );
 }
 
 // ── Teacher Dashboard Home ─────────────────────────────────────────────────
-function TeacherDashHome({students,tests,attempts}){
-  const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
-  const avgScore = approvedStudents.length
-    ? Math.round(approvedStudents.reduce((a,s)=>a+s.avg,0)/approvedStudents.length)
-    : 0;
-  const publishedTests = tests.filter(t=>t.status==="published").length;
-
-  // Class-wise average score, computed live from attempts.
-  const classPerf = CLASSES.map(cls=>{
-    const a = attempts.filter(at=>at.cls===cls);
-    const avg = a.length ? Math.round(a.reduce((s,at)=>s+(at.percentage??0),0)/a.length) : 0;
-    return {cls:`Class ${cls}`, avg};
-  });
-
-  // Subject-wise average score, computed live from attempts.
-  const subjects = [...new Set(tests.map(t=>t.subject).filter(Boolean))];
-  const subjectPerf = subjects.map(sub=>{
-    const a = attempts.filter(at=>at.subject===sub);
-    const avg = a.length ? Math.round(a.reduce((s,at)=>s+(at.percentage??0),0)/a.length) : 0;
-    return {sub, avg};
-  });
-
-  // Recent tests, newest first (tests are already ordered by createdAt desc).
-  const recentTests = tests.slice(0,4);
-
+function TeacherDashHome({students,tests}){
+  const avgScore = Math.round(students.reduce((a,s)=>a+s.avg,0)/students.length);
+  const activeTests = tests.filter(t=>t.status==="active").length;
   return(
     <div>
       <h2 style={{margin:"0 0 6px",fontSize:24,fontWeight:800,color:T.text}}>Good morning, Teacher! 👋</h2>
@@ -655,8 +694,8 @@ function TeacherDashHome({students,tests,attempts}){
 
       {/* Stat cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:28}}>
-        <StatCard icon="👥" label="Total Students" value={approvedStudents.length} color={T.blue} sub="All classes"/>
-        <StatCard icon="📝" label="Total Tests" value={tests.length} color={T.gold} sub={`${publishedTests} published`}/>
+        <StatCard icon="👥" label="Total Students" value={students.length} color={T.blue} sub="All classes"/>
+        <StatCard icon="📝" label="Total Tests" value={tests.length} color={T.gold} sub={`${activeTests} active`}/>
         <StatCard icon="⭐" label="Avg Score" value={`${avgScore}%`} color={T.success} sub="Across all classes"/>
         <StatCard icon="🏫" label="Classes" value="7" color="#8b5cf6" sub="Class 6 to 12"/>
       </div>
@@ -666,7 +705,7 @@ function TeacherDashHome({students,tests,attempts}){
         <Card>
           <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Class-wise Average Score</h3>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={classPerf} barSize={22}>
+            <BarChart data={CLASS_PERF} barSize={22}>
               <XAxis dataKey="cls" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
               <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
               <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
@@ -676,49 +715,40 @@ function TeacherDashHome({students,tests,attempts}){
         </Card>
         <Card>
           <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Subject Performance</h3>
-          {subjectPerf.length===0?(
-            <p style={{color:T.textM,fontSize:13,textAlign:"center",padding:"40px 0"}}>No attempts yet.</p>
-          ):(
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={subjectPerf} barSize={22}>
-                <XAxis dataKey="sub" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-                <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-                <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
-                <Bar dataKey="avg" fill={T.gold} radius={[6,6,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={SUBJECT_PERF} barSize={22}>
+              <XAxis dataKey="sub" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+              <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+              <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
+              <Bar dataKey="avg" fill={T.gold} radius={[6,6,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
         </Card>
       </div>
 
       {/* Recent tests */}
       <Card>
         <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Recent Tests</h3>
-        {recentTests.length===0?(
-          <p style={{color:T.textM,fontSize:13,margin:0}}>No tests created yet.</p>
-        ):(
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {recentTests.map(t=>(
-              <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:T.bg,borderRadius:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:22}}>{SUBJECT_ICONS[t.subject]||"📝"}</span>
-                  <div>
-                    <div style={{fontWeight:700,fontSize:14,color:T.text}}>{t.title}</div>
-                    <div style={{fontSize:12,color:T.textM}}>Class {t.cls} · {t.type} · {t.duration} min</div>
-                  </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {MOCK_TESTS.slice(0,4).map(t=>(
+            <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:T.bg,borderRadius:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:22}}>{SUBJECT_ICONS[t.subject]||"📝"}</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:14,color:T.text}}>{t.title}</div>
+                  <div style={{fontSize:12,color:T.textM}}>Class {t.cls} · {t.type} · {t.duration} min</div>
                 </div>
-                <Badge color={t.status==="published"?T.success:t.status==="draft"?T.warn:T.textM}>
-                  {t.status==="published"?"● Published":t.status==="draft"?"✏️ Draft":"📦 Archived"}
-                </Badge>
               </div>
-            ))}
-          </div>
-        )}
+              <Badge color={t.status==="active"?T.success:T.warn}>{t.status==="active"?"● Live":"⏰ Upcoming"}</Badge>
+            </div>
+          ))}
+        </div>
       </Card>
     </div>
   );
 }
 
+// ── Teacher Students ───────────────────────────────────────────────────────
 // ── Teacher Approvals ───────────────────────────────────────────────────────
 function TeacherApprovals({students,setStudents,showToast,refreshStudents}){
   const pending = students.filter(s=>s.status==="pending");
@@ -784,84 +814,13 @@ function TeacherApprovals({students,setStudents,showToast,refreshStudents}){
 }
 
 
-// ── Teacher Rejected ────────────────────────────────────────────────────────
-function TeacherRejected({students,setStudents,showToast,refreshStudents}){
-  const rejected = students.filter(s=>s.status==="rejected");
-
-  const reapprove=async (id)=>{
-    try{
-      await approveStudent(id);
-      await refreshStudents();
-      showToast("Student approved! ✅");
-    }catch(e){
-      showToast("Failed to approve student","error");
-    }
-  };
-
-  return(
-    <div>
-      <h2 style={{margin:"0 0 6px",fontSize:22,fontWeight:800,color:T.text}}>🚫 Rejected Requests</h2>
-      <p style={{color:T.textM,fontSize:13,margin:"0 0 20px"}}>
-        {rejected.length===0?"No rejected requests.":`${rejected.length} rejected request${rejected.length>1?"s":""} — you can approve them later`}
-      </p>
-
-      {rejected.length===0?(
-        <Card style={{textAlign:"center",padding:"40px 20px"}}>
-          <div style={{fontSize:40,marginBottom:10}}>📭</div>
-          <p style={{color:T.textM,margin:0,fontSize:14}}>Nothing here right now.</p>
-        </Card>
-      ):(
-        <div style={{display:"grid",gap:12}}>
-          {rejected.map(s=>(
-            <Card key={s.id} style={{padding:"16px 20px"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-                <div style={{display:"flex",alignItems:"center",gap:14}}>
-                  <div style={{width:44,height:44,borderRadius:12,background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:17}}>{s.name[0]}</div>
-                  <div>
-                    <div style={{fontWeight:700,fontSize:15,color:T.text}}>{s.name}</div>
-                    <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                      <Badge color={T.blue}>Class {s.cls}</Badge>
-                      <Badge color={T.textM}>📱 {s.mobile}</Badge>
-                      <Badge color={T.textM}>@{s.username}</Badge>
-                    </div>
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <Btn onClick={()=>reapprove(s.id)} style={{padding:"8px 18px",fontSize:13}}>✓ Approve Now</Btn>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
 // ── Teacher Students ───────────────────────────────────────────────────────
-function TeacherStudents({students,setStudents,showToast,refreshStudents,cardBg,textC,borderC}){
+function TeacherStudents({students,setStudents,showToast,cardBg,textC,borderC}){
   const [showAdd,setShowAdd]=useState(false);
   const [form,setForm]=useState({name:"",cls:10,mobile:"",username:""});
   const [filterCls,setFilterCls]=useState("all");
 
-  const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
-  const filtered = filterCls==="all"?approvedStudents:approvedStudents.filter(s=>s.cls===Number(filterCls));
-
-  const toggleBlock=async (s)=>{
-    try{
-      if(s.status==="blocked"){
-        await unblockStudent(s.id);
-        showToast(`${s.name}'s access restored ✅`);
-      }else{
-        await blockStudent(s.id);
-        showToast(`${s.name}'s access blocked 🚫`,"error");
-      }
-      await refreshStudents();
-    }catch(e){
-      showToast("Failed to update student access","error");
-    }
-  };
+  const filtered = filterCls==="all"?students:students.filter(s=>s.cls===Number(filterCls));
 
   const addStudent=()=>{
     if(!form.name||!form.mobile||!form.username){showToast("Fill all fields","error");return;}
@@ -876,7 +835,7 @@ function TeacherStudents({students,setStudents,showToast,refreshStudents,cardBg,
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div>
           <h2 style={{margin:"0 0 4px",fontSize:22,fontWeight:800,color:T.text}}>Students</h2>
-          <p style={{margin:0,color:T.textM,fontSize:13}}>{students.filter(s=>s.status==="approved").length} total students enrolled</p>
+          <p style={{margin:0,color:T.textM,fontSize:13}}>{students.length} total students enrolled</p>
         </div>
         <Btn onClick={()=>setShowAdd(true)}>+ Add Student</Btn>
       </div>
@@ -924,23 +883,20 @@ function TeacherStudents({students,setStudents,showToast,refreshStudents,cardBg,
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead>
               <tr style={{background:T.bg}}>
-                {["Student","Class","Mobile","Username","Tests","Avg Score","Rank","Action"].map(h=>(
+                {["Student","Class","Mobile","Username","Tests","Avg Score","Rank"].map(h=>(
                   <th key={h} style={{padding:"12px 16px",textAlign:"left",fontSize:12,fontWeight:700,color:T.textM,whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((s,i)=>(
-                <tr key={s.id} style={{borderTop:`1px solid ${T.border}`,background:i%2===0?"#fff":T.bg,opacity:s.status==="blocked"?0.55:1}}>
+                <tr key={s.id} style={{borderTop:`1px solid ${T.border}`,background:i%2===0?"#fff":T.bg}}>
                   <td style={{padding:"12px 16px"}}>
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <div style={{width:34,height:34,borderRadius:10,background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:13}}>
                         {s.name[0]}
                       </div>
-                      <div>
-                        <div style={{fontWeight:700,fontSize:14,color:T.text}}>{s.name}</div>
-                        {s.status==="blocked"&&<div style={{fontSize:11,fontWeight:700,color:T.error}}>🚫 Blocked</div>}
-                      </div>
+                      <span style={{fontWeight:700,fontSize:14,color:T.text}}>{s.name}</span>
                     </div>
                   </td>
                   <td style={{padding:"12px 16px"}}><Badge color={T.blue}>Class {s.cls}</Badge></td>
@@ -956,12 +912,6 @@ function TeacherStudents({students,setStudents,showToast,refreshStudents,cardBg,
                     </div>
                   </td>
                   <td style={{padding:"12px 16px"}}><span style={{fontWeight:800,color:s.rank===1?T.gold:T.textM}}>#{s.rank}</span></td>
-                  <td style={{padding:"12px 16px"}}>
-                    <button onClick={()=>toggleBlock(s)}
-                      style={{background:s.status==="blocked"?T.success+"18":T.error+"15",color:s.status==="blocked"?T.success:T.error,border:`1px solid ${s.status==="blocked"?T.success:T.error}33`,borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
-                      {s.status==="blocked"?"✓ Unblock":"🚫 Block"}
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -975,8 +925,7 @@ function TeacherStudents({students,setStudents,showToast,refreshStudents,cardBg,
 // ── Leaderboard ────────────────────────────────────────────────────────────
 function Leaderboard({students,cardBg,textC,borderC}){
   const [filterCls,setFilterCls]=useState("all");
-  const approvedStudents = students.filter(s=>s.status==="approved");
-  const filtered = (filterCls==="all"?approvedStudents:approvedStudents.filter(s=>s.cls===Number(filterCls)))
+  const filtered = (filterCls==="all"?students:students.filter(s=>s.cls===Number(filterCls)))
     .slice().sort((a,b)=>b.avg-a.avg);
   const medals=["🥇","🥈","🥉"];
   return(
@@ -1041,62 +990,27 @@ function Leaderboard({students,cardBg,textC,borderC}){
 }
 
 // ── Analytics ──────────────────────────────────────────────────────────────
-function Analytics({students,attempts,tests}){
-  const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
+function Analytics({students}){
   const pieData=[
-    {name:"80–100%",value:approvedStudents.filter(s=>s.avg>=80).length,color:T.success},
-    {name:"60–79%",value:approvedStudents.filter(s=>s.avg>=60&&s.avg<80).length,color:T.gold},
-    {name:"Below 60%",value:approvedStudents.filter(s=>s.avg<60).length,color:T.error},
+    {name:"80–100%",value:students.filter(s=>s.avg>=80).length,color:T.success},
+    {name:"60–79%",value:students.filter(s=>s.avg>=60&&s.avg<80).length,color:T.gold},
+    {name:"Below 60%",value:students.filter(s=>s.avg<60).length,color:T.error},
   ];
-
-  // Score trend by month, computed live from attempt submission dates.
-  const monthly = {};
-  attempts.forEach(a=>{
-    const ts = a.submittedAt?.toDate ? a.submittedAt.toDate() : (a.submittedAt ? new Date(a.submittedAt) : null);
-    if(!ts || isNaN(ts.getTime())) return;
-    const key = ts.toLocaleString("en-US",{month:"short",year:"2-digit"});
-    (monthly[key] ||= []).push(a.percentage ?? 0);
-  });
-  const trendData = Object.entries(monthly).map(([month,vals])=>({
-    month, score: Math.round(vals.reduce((s,v)=>s+v,0)/vals.length),
-  }));
-
-  // Weak area identification: group attempts by class+subject, surface
-  // lowest-scoring combinations (below 75%).
-  const groups = {};
-  attempts.forEach(a=>{
-    if(!a.subject||!a.cls) return;
-    const key = `${a.subject}__${a.cls}`;
-    (groups[key] ||= []).push(a.percentage ?? 0);
-  });
-  const weakAreas = Object.entries(groups)
-    .map(([key,vals])=>{
-      const [sub,cls] = key.split("__");
-      return { sub, cls: `Class ${cls}`, avg: Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) };
-    })
-    .filter(w=>w.avg < 75)
-    .sort((a,b)=>a.avg-b.avg)
-    .slice(0,4);
-
   return(
     <div>
       <h2 style={{margin:"0 0 6px",fontSize:22,fontWeight:800,color:T.text}}>📈 Analytics</h2>
       <p style={{color:T.textM,fontSize:13,margin:"0 0 24px"}}>Data-driven insights for your tuition centre</p>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,marginBottom:20}}>
         <Card>
-          <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Score Trend (All Classes)</h3>
-          {trendData.length===0?(
-            <p style={{color:T.textM,fontSize:13,textAlign:"center",padding:"40px 0"}}>No test attempts yet.</p>
-          ):(
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={trendData}>
-                <XAxis dataKey="month" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-                <YAxis domain={[0,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
-                <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
-                <Line type="monotone" dataKey="score" stroke={T.blue} strokeWidth={3} dot={{fill:T.blue,r:4}}/>
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+          <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Score Trend (Class 10)</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={PROGRESS_DATA}>
+              <XAxis dataKey="month" tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+              <YAxis domain={[50,100]} tick={{fontSize:10}} tickLine={false} axisLine={false}/>
+              <Tooltip contentStyle={{borderRadius:10,border:"none",boxShadow:T.shadow}}/>
+              <Line type="monotone" dataKey="score" stroke={T.blue} strokeWidth={3} dot={{fill:T.blue,r:4}}/>
+            </LineChart>
+          </ResponsiveContainer>
         </Card>
         <Card>
           <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Score Distribution</h3>
@@ -1123,24 +1037,17 @@ function Analytics({students,attempts,tests}){
       </div>
       <Card>
         <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text}}>Weak Area Identification</h3>
-        {weakAreas.length===0?(
-          <p style={{color:T.textM,fontSize:13,margin:0}}>No weak areas detected yet — attempt some tests to see insights here.</p>
-        ):(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
-            {weakAreas.map(w=>{
-              const color = w.avg<60?T.error:w.avg<70?T.warn:T.gold;
-              return(
-                <div key={`${w.sub}-${w.cls}`} style={{background:color+"12",borderRadius:12,padding:"14px 16px",border:`1px solid ${color}33`}}>
-                  <div style={{fontSize:20,marginBottom:6}}>{SUBJECT_ICONS[w.sub]||"📘"}</div>
-                  <div style={{fontWeight:700,fontSize:14,color:T.text}}>{w.sub}</div>
-                  <div style={{fontSize:12,color:T.textM,marginBottom:8}}>{w.cls}</div>
-                  <div style={{fontSize:20,fontWeight:900,color}}>{w.avg}%</div>
-                  <div style={{fontSize:11,color,fontWeight:600,marginTop:2}}>⚠️ Needs attention</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
+          {[["Physics","Class 11",68,T.warn],["Social Science","Class 9",62,T.error],["Hindi","Class 7",71,T.warn],["Chemistry","Class 12",74,T.gold]].map(([sub,cls,score,color])=>(
+            <div key={sub} style={{background:color+"12",borderRadius:12,padding:"14px 16px",border:`1px solid ${color}33`}}>
+              <div style={{fontSize:20,marginBottom:6}}>{SUBJECT_ICONS[sub]||"📘"}</div>
+              <div style={{fontWeight:700,fontSize:14,color:T.text}}>{sub}</div>
+              <div style={{fontSize:12,color:T.textM,marginBottom:8}}>{cls}</div>
+              <div style={{fontSize:20,fontWeight:900,color}}>{score}%</div>
+              <div style={{fontSize:11,color,fontWeight:600,marginTop:2}}>⚠️ Needs attention</div>
+            </div>
+          ))}
+        </div>
       </Card>
     </div>
   );
@@ -1430,14 +1337,14 @@ function QuizScreen({test,questions,student,onFinish,onQuit}){
     setSubmitted(true);
     clearInterval(timerRef.current);
     exitFullscreen();
-    const correct=answers.filter(a=>a.correct).length+(chosen!==null&&chosen===questions[qIdx]?.answer?1:0);
+    const correct=answers.filter(a=>a.correct).length+(chosen!==null&&chosen===questions[qIdx]?.ans?1:0);
     const total=questions.length;
     const pct=Math.round((correct/total)*100);
-    onFinish({score:correct,total,pct,answers:[...answers,{chosen,correct:chosen===questions[qIdx]?.answer}],test,violations,violationLog,autoSubmitReason:auto?reason:null});
+    onFinish({score:correct,total,pct,answers:[...answers,{chosen,correct:chosen===questions[qIdx]?.ans}],test,violations,violationLog,autoSubmitReason:auto?reason:null});
   };
 
   const handleNext=()=>{
-    const correct=chosen===questions[qIdx].answer;
+    const correct=chosen===questions[qIdx].ans;
     const newScore=correct?score+1:score;
     const newAnswers=[...answers,{chosen,correct}];
     if(qIdx+1<questions.length){
