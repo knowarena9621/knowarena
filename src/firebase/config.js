@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -14,10 +14,3 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-// Keep the user logged in across page reloads / app restarts (until they
-// explicitly tap Logout). This is the default for the web SDK, but we set
-// it explicitly so login sessions are never lost on mobile browsers.
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.error("Failed to set auth persistence:", err);
-});

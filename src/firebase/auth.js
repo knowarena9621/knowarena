@@ -56,3 +56,21 @@ export async function studentLogin(username, password) {
 export async function logout() {
   await signOut(auth);
 }
+
+/**
+ * Given a Firebase Auth uid (from onAuthStateChanged), figure out whether
+ * this user is a teacher or a student and return their profile.
+ * Used to restore a session on app load so users don't have to log in
+ * again every time (until they explicitly log out).
+ */
+export async function getUserProfile(uid) {
+  const teacherDoc = await getDoc(doc(db, "teachers", uid));
+  if (teacherDoc.exists()) {
+    return { role: "teacher", profile: { uid, ...teacherDoc.data() } };
+  }
+  const studentDoc = await getDoc(doc(db, "students", uid));
+  if (studentDoc.exists()) {
+    return { role: "student", profile: { uid, ...studentDoc.data() } };
+  }
+  return null;
+}

@@ -10,9 +10,9 @@ const questionsCol = collection(db, "questions");
 export async function getQuestionsForTest(testId) {
   const q = query(questionsCol, where("testId", "==", testId));
   const snap = await getDocs(q);
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return list;
 }
 
 /** Get questions by their IDs (used for question bank import). */
