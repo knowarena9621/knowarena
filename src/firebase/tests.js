@@ -23,6 +23,21 @@ export async function getActiveTestsForClass(cls) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+/**
+ * Compute a student-facing status for a test card:
+ * "completed" if the student already attempted it,
+ * "upcoming" if scheduledAt is in the future,
+ * otherwise "live".
+ */
+export function computeTestStatus(test, hasAttempted) {
+  if (hasAttempted) return "completed";
+  if (test.scheduledAt) {
+    const scheduled = new Date(test.scheduledAt);
+    if (!isNaN(scheduled.getTime()) && scheduled.getTime() > Date.now()) return "upcoming";
+  }
+  return "live";
+}
+
 export async function getTest(testId) {
   const snap = await getDoc(doc(db, "tests", testId));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
