@@ -77,6 +77,14 @@ service cloud.firestore {
       allow write: if isTeacher();
     }
 
+    // ── questionBank/{questionId} ─────────────────────────────────────────
+    // Standalone reusable question bank. Teacher-only (not exposed to
+    // students directly; questions are cloned into `questions` when
+    // imported into a test).
+    match /questionBank/{questionId} {
+      allow read, write: if isTeacher();
+    }
+
     // ── attempts/{attemptId} ──────────────────────────────────────────────
     // Document ID convention: "{testId}_{studentUid}"
     // - Student can create their own attempt ONCE (no retake/overwrite).

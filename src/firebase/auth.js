@@ -57,16 +57,20 @@ export async function logout() {
   await signOut(auth);
 }
 
-// ─── SESSION RESTORE (keep students/teachers logged in) ─────────────────────
-// Used on app startup to check if the already-signed-in Firebase user
-// (persisted in the browser) is a teacher or a student, so we don't force
-// them to log in again until they explicitly log out.
-export async function getTeacherProfile(uid) {
-  const snap = await getDoc(doc(db, "teachers", uid));
-  return snap.exists() ? { uid, ...snap.data() } : null;
-}
-
-export async function getStudentProfile(uid) {
-  const snap = await getDoc(doc(db, "students", uid));
-  return snap.exists() ? { uid, ...snap.data() } : null;
+/**
+ * Given a Firebase Auth uid (from onAuthStateChanged), figure out whether
+ * this user is a teacher or a student and return their profile.
+ * Used to restore a session on app load so users don't have to log in
+ * again every time (until they explicitly log out).
+ */
+export async function getUserProfile(uid) {
+  const teacherDoc = await getDoc(doc(db, "teachers", uid));
+  if (teacherDoc.exists()) {
+    return { role: "teacher", profile: { uid, ...teacherDoc.data() } };
+  }
+  const studentDoc = await getDoc(doc(db, "students", uid));
+  if (studentDoc.exists()) {
+    return { role: "student", profile: { uid, ...studentDoc.data() } };
+  }
+  return null;
 }
