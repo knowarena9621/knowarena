@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { teacherLogin, studentSignup, studentLogin, logout as fbLogout } from "./firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase/config";
+import { teacherLogin, studentSignup, studentLogin, logout as fbLogout, getTeacherProfile, getStudentProfile } from "./firebase/auth";
 import { getStudents, approveStudent, rejectStudent, blockStudent, unblockStudent } from "./firebase/students";
 import { getAllTests } from "./firebase/tests";
 import { getAllAttempts } from "./firebase/attempts";
@@ -126,6 +128,7 @@ const StatCard = ({icon,label,value,color=T.blue,sub})=>(
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function KnowArena() {
+  const [authChecking, setAuthChecking] = useState(true);
   const [screen, setScreen] = useState(SC.LOGIN);
   const [role, setRole] = useState(null);
   const [currentTeacher, setCurrentTeacher] = useState(null);
@@ -183,11 +186,67 @@ export default function KnowArena() {
     await Promise.all([refreshStudents(), refreshTests(), refreshAttempts()]);
   };
 
+  // ── SESSION RESTORE ─────────────────────────────────────────────────────
+  // Firebase keeps the user signed in across page reloads (browser local
+  // storage). On startup, check if someone is already signed in and, if so,
+  // load their teacher/student profile and jump straight to their dashboard
+  // — so they don't have to log in again until they tap "Logout".
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setAuthChecking(false);
+        return;
+      }
+      try {
+        const teacher = await getTeacherProfile(user.uid);
+        if (teacher) {
+          setRole("teacher");
+          setCurrentTeacher(teacher);
+          setTeacherTab("dashboard");
+          setScreen(SC.TEACHER);
+          await refreshTeacherData();
+          setAuthChecking(false);
+          return;
+        }
+        const student = await getStudentProfile(user.uid);
+        if (student) {
+          setCurrentStudent(student);
+          if (student.status==="pending" || student.status==="rejected" || student.status==="blocked") {
+            setScreen(SC.PENDING_APPROVAL);
+          } else {
+            setScreen(SC.STUDENT_DASH);
+          }
+          setAuthChecking(false);
+          return;
+        }
+        // Signed-in user has no matching teacher/student profile — sign out.
+        await fbLogout();
+        setAuthChecking(false);
+      } catch (e) {
+        console.error("Session restore failed:", e);
+        setAuthChecking(false);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+
   const dm = darkMode;
   const bg = dm ? T.bgD : T.bg;
   const cardBg = dm ? T.cardD : T.white;
   const textC = dm ? "#f1f5f9" : T.text;
   const borderC = dm ? T.borderD : T.border;
+
+  // ── SPLASH / SESSION CHECK ──────────────────────────────────────────────
+  if(authChecking) return (
+    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{background:"#fff",borderRadius:20,padding:"18px 24px",display:"inline-block",boxShadow:"0 8px 24px rgba(0,0,0,0.15)"}}>
+        <img src={LOGO_FULL} alt="KnowArena" style={{height:64,display:"block"}}/>
+      </div>
+      <div style={{width:32,height:32,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"karSpin 0.8s linear infinite"}}/>
+      <style>{`@keyframes karSpin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if(screen===SC.LOGIN) return (

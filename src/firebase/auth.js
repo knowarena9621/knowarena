@@ -56,3 +56,17 @@ export async function studentLogin(username, password) {
 export async function logout() {
   await signOut(auth);
 }
+
+// ─── SESSION RESTORE (keep students/teachers logged in) ─────────────────────
+// Used on app startup to check if the already-signed-in Firebase user
+// (persisted in the browser) is a teacher or a student, so we don't force
+// them to log in again until they explicitly log out.
+export async function getTeacherProfile(uid) {
+  const snap = await getDoc(doc(db, "teachers", uid));
+  return snap.exists() ? { uid, ...snap.data() } : null;
+}
+
+export async function getStudentProfile(uid) {
+  const snap = await getDoc(doc(db, "students", uid));
+  return snap.exists() ? { uid, ...snap.data() } : null;
+}
