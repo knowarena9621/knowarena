@@ -226,14 +226,15 @@ export default function KnowArena() {
   const textC = dm ? "#f1f5f9" : T.text;
   const borderC = dm ? T.borderD : T.border;
 
-  // ── SESSION RESTORE LOADING (splash screen w/ spinner) ─────────────────────
+  // ── SESSION RESTORE LOADING (full-screen splash w/ spinner) ────────────────
   if(!authChecked) return (
-    <div style={{minHeight:"100vh",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:28,overflow:"hidden"}}>
-      <img src="/splash.png" alt="KnowArena" style={{width:"min(78vw,340px)",height:"auto",objectFit:"contain"}}/>
+    <div style={{position:"fixed",inset:0,width:"100vw",height:"100vh",background:"#fff"}}>
+      <img src="/splash.png" alt="KnowArena" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
       <div style={{
-        width:40,height:40,borderRadius:"50%",
-        border:"4px solid rgba(26,86,219,0.15)",
-        borderTopColor:T.blue,
+        position:"absolute",bottom:"8%",left:"50%",transform:"translateX(-50%)",
+        width:42,height:42,borderRadius:"50%",
+        border:"4px solid rgba(255,255,255,0.35)",
+        borderTopColor:"#fff",
         animation:"ka-spin 0.8s linear infinite"
       }}/>
       <style>{`@keyframes ka-spin { to { transform: rotate(360deg); } }`}</style>
