@@ -218,6 +218,7 @@ export default function KnowArena() {
   }, []);
 
   const dm = darkMode;
+  const bg = dm ? T.bgD : T.bg;
   const cardBg = dm ? T.cardD : T.white;
   const textC = dm ? "#f1f5f9" : T.text;
   const borderC = dm ? T.borderD : T.border;
