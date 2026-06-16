@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeAuth, browserLocalPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -12,5 +12,11 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// ✅ initializeAuth with browserLocalPersistence — synchronous, no race condition.
+// Login session stays alive until the student/teacher explicitly taps Logout.
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence,
+});
+
 export const db = getFirestore(app);
