@@ -228,12 +228,12 @@ export default function KnowArena() {
 
   // ── SESSION RESTORE LOADING (splash screen w/ spinner) ─────────────────────
   if(!authChecked) return (
-    <div style={{minHeight:"100vh",background:T.grad,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:24}}>
-      <img src={LOGO_ICON} alt="KnowArena" style={{height:64,width:"auto",opacity:0.95}}/>
+    <div style={{minHeight:"100vh",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:28,overflow:"hidden"}}>
+      <img src="/splash.png" alt="KnowArena" style={{width:"min(78vw,340px)",height:"auto",objectFit:"contain"}}/>
       <div style={{
         width:40,height:40,borderRadius:"50%",
-        border:"4px solid rgba(255,255,255,0.3)",
-        borderTopColor:"#fff",
+        border:"4px solid rgba(26,86,219,0.15)",
+        borderTopColor:T.blue,
         animation:"ka-spin 0.8s linear infinite"
       }}/>
       <style>{`@keyframes ka-spin { to { transform: rotate(360deg); } }`}</style>
