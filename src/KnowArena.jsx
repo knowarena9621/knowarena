@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { teacherLogin, studentSignup, studentLogin, logout as fbLogout } from "./firebase/auth";
+import { teacherLogin, studentSignup, studentLogin, logout as fbLogout, getUserProfile } from "./firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase/config";
 import { getStudents, approveStudent, rejectStudent, blockStudent, unblockStudent } from "./firebase/students";
 import { getAllTests } from "./firebase/tests";
 import { getAllAttempts } from "./firebase/attempts";
@@ -140,6 +142,7 @@ export default function KnowArena() {
   const [attempts, setAttempts] = useState([]);
   const [teacherTab, setTeacherTab] = useState("dashboard");
   const [toast, setToast] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const showToast = (msg, type="success") => {
     setToast({msg,type});
@@ -184,11 +187,58 @@ export default function KnowArena() {
     await Promise.all([refreshStudents(), refreshTests(), refreshAttempts()]);
   };
 
+  // Restore session on page load/refresh (Firebase Auth persists across reloads
+  // in browser storage, but the app never checked for it before — this fixes
+  // the "always lands back on login screen" bug).
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) { setAuthChecked(true); return; }
+      try {
+        const result = await getUserProfile(user.uid);
+        if (!result) { setAuthChecked(true); return; }
+        if (result.role === "teacher") {
+          setRole("teacher");
+          setCurrentTeacher(result.profile);
+          setTeacherTab("dashboard");
+          setScreen(SC.TEACHER);
+          await refreshTeacherData();
+        } else {
+          const stu = result.profile;
+          setCurrentStudent(stu);
+          if (stu.status === "pending" || stu.status === "rejected" || stu.status === "blocked") {
+            setScreen(SC.PENDING_APPROVAL);
+          } else {
+            setScreen(SC.STUDENT_DASH);
+          }
+        }
+        setAuthChecked(true);
+      } catch (e) {
+        console.error("Session restore failed:", e);
+        setAuthChecked(true);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const dm = darkMode;
   const bg = dm ? T.bgD : T.bg;
   const cardBg = dm ? T.cardD : T.white;
   const textC = dm ? "#f1f5f9" : T.text;
   const borderC = dm ? T.borderD : T.border;
+
+  // ── SESSION RESTORE LOADING (splash screen w/ spinner) ─────────────────────
+  if(!authChecked) return (
+    <div style={{minHeight:"100vh",background:T.grad,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:24}}>
+      <img src={LOGO_ICON} alt="KnowArena" style={{height:64,width:"auto",opacity:0.95}}/>
+      <div style={{
+        width:40,height:40,borderRadius:"50%",
+        border:"4px solid rgba(255,255,255,0.3)",
+        borderTopColor:"#fff",
+        animation:"ka-spin 0.8s linear infinite"
+      }}/>
+      <style>{`@keyframes ka-spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if(screen===SC.LOGIN) return (
