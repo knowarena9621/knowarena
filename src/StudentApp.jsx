@@ -42,6 +42,27 @@ const Badge = ({children,color=T.blue})=>(
   <span style={{background:color+"18",color,borderRadius:20,padding:"3px 12px",fontSize:12,fontWeight:700}}>{children}</span>
 );
 
+// Modern student avatar: graduation cap over a student silhouette, blue gradient circle.
+const StudentAvatar = ({size=36}) => (
+  <div style={{
+    width:size,height:size,borderRadius:"50%",
+    background:"linear-gradient(135deg,#60a5fa 0%,#1d4ed8 100%)",
+    display:"flex",alignItems:"center",justifyContent:"center",
+    boxShadow:"0 2px 6px rgba(29,78,216,0.35)",flexShrink:0,
+  }}>
+    <svg width={size*0.62} height={size*0.62} viewBox="0 0 24 24" fill="none">
+      {/* silhouette (head + shoulders) */}
+      <circle cx="12" cy="10.2" r="3.6" fill="#ffffff" fillOpacity="0.95"/>
+      <path d="M5 21c0-3.6 3.13-6 7-6s7 2.4 7 6" stroke="#ffffff" strokeOpacity="0.95" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      {/* graduation cap */}
+      <path d="M12 3.2 L21 6.6 L12 10 L3 6.6 Z" fill="#fbbf24"/>
+      <path d="M7.2 7.7 V11 C7.2 12.4 9.3 13.4 12 13.4 C14.7 13.4 16.8 12.4 16.8 11 V7.7" stroke="#fbbf24" strokeWidth="1.1" fill="none"/>
+      <line x1="21" y1="6.6" x2="21" y2="10.6" stroke="#fbbf24" strokeWidth="1.1" strokeLinecap="round"/>
+      <circle cx="21" cy="11.2" r="0.85" fill="#fbbf24"/>
+    </svg>
+  </div>
+);
+
 // View inside student app
 const SV = { DASH:"dash", MY_TESTS:"mytests", TEST_DETAIL:"detail", QUIZ:"quiz", RESULT:"result", MY_RESULTS:"myresults", PROFILE:"profile" };
 
@@ -157,11 +178,14 @@ export default function StudentApp({ student, onLogout, showToast }) {
       {/* Top bar */}
       <div style={{background:T.grad,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{fontSize:22,fontWeight:900,color:"#fff"}}>Know<span style={{color:T.gold}}>Arena</span></div>
+          <div>
+            <div style={{fontSize:22,fontWeight:900,color:"#fff",lineHeight:1.1}}>Know<span style={{color:T.gold}}>Arena</span></div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontWeight:600,letterSpacing:0.2}}>The Field of Knowledge</div>
+          </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",textAlign:"right"}}>Class {student.cls}<br/>Student</div>
-          <div style={{width:34,height:34,background:"rgba(255,255,255,0.2)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:16}}>{student.name[0]}</div>
+          <StudentAvatar/>
         </div>
       </div>
 
@@ -276,9 +300,9 @@ function DashboardView({ student, tests, myResults, testsLoading, onOpenTest, on
         </Card>
       )}
 
-      {available.slice(0,3).map(t=>(
-        <TestCard key={t.id} test={t} attempted={false} onOpen={()=>onOpenTest(t)}/>
-      ))}
+      {!testsLoading && available.length>0 && (
+        <SubjectGroupedTests tests={available} onOpenTest={onOpenTest}/>
+      )}
 
       {/* Recent results */}
       {myResults.length>0 && (
@@ -307,9 +331,45 @@ function DashboardView({ student, tests, myResults, testsLoading, onOpenTest, on
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MY TESTS VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// Groups tests by subject, listing each test's chapter/title underneath —
+// e.g. "Mathematics" → "Introduction to Linear Polynomials", "Coordinate Geometry"
+function SubjectGroupedTests({ tests, onOpenTest }) {
+  const bySubject = {};
+  tests.forEach(t => {
+    const subj = t.subject || "Other";
+    if (!bySubject[subj]) bySubject[subj] = [];
+    bySubject[subj].push(t);
+  });
+
+  return (
+    <div>
+      {Object.entries(bySubject).map(([subject, subjectTests]) => (
+        <Card key={subject} style={{marginBottom:14,padding:"16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+            <div style={{width:36,height:36,borderRadius:10,background:T.blueL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
+              {SUBJECT_ICONS[subject]||"📝"}
+            </div>
+            <div style={{fontWeight:800,fontSize:15,color:T.text}}>{subject}</div>
+          </div>
+          <div>
+            {subjectTests.map(t => (
+              <button key={t.id} onClick={()=>onOpenTest(t)}
+                style={{
+                  width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,
+                  background:"none",border:"none",borderTop:`1px solid ${T.border}`,
+                  padding:"10px 2px",cursor:"pointer",textAlign:"left",
+                }}>
+                <span style={{fontSize:14,color:T.text,fontWeight:600}}>• {t.title}</span>
+                <span style={{color:T.blue,fontSize:13,fontWeight:700,flexShrink:0}}>Start →</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function MyTestsView({ tests, testsLoading, onOpenTest, attemptedIds, onRefresh }) {
   const [filter, setFilter] = useState("all");
 
