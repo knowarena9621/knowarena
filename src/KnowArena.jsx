@@ -613,7 +613,10 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
         </button>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <img src={LOGO_ICON} alt="" style={{height:26,width:"auto"}}/>
-          <div style={{fontSize:16,fontWeight:900,color:"#fff",lineHeight:1.1}}>Know<span style={{color:T.gold}}>Arena</span></div>
+          <div style={{lineHeight:1.1}}>
+            <div style={{fontSize:16,fontWeight:900,color:"#fff"}}>Know<span style={{color:T.gold}}>Arena</span></div>
+            <div style={{fontSize:9,color:"rgba(255,255,255,0.75)",fontWeight:600}}>The Field of Knowledge</div>
+          </div>
         </div>
         <div style={{width:38}}/>
       </div>
