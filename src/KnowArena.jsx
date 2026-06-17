@@ -982,8 +982,6 @@ function TeacherNotices({showToast, teacherName}){
       </Card>
     </div>
   );
-}
-
 // ── Teacher Approvals ───────────────────────────────────────────────────────
 function TeacherApprovals({students,setStudents,showToast,refreshStudents}){
   const pending = students.filter(s=>s.status==="pending");
