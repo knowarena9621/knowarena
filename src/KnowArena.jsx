@@ -888,7 +888,7 @@ function TeacherNotices({showToast, teacherName}){
   );
 }
 
-
+function TeacherDashHome({students, tests, attempts}) {
   const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
   const avgScore = approvedStudents.length
     ? Math.round(approvedStudents.reduce((a,s)=>a+s.avg,0)/approvedStudents.length)
@@ -982,6 +982,7 @@ function TeacherNotices({showToast, teacherName}){
       </Card>
     </div>
   );
+}
 // ── Teacher Approvals ───────────────────────────────────────────────────────
 function TeacherApprovals({students,setStudents,showToast,refreshStudents}){
   const pending = students.filter(s=>s.status==="pending");
