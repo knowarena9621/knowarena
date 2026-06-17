@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { teacherLogin, studentSignup, studentLogin, logout as fbLogout, getUserProfile } from "./firebase/auth";
+import { teacherLogin, studentSignup, studentLogin, logout as fbLogout, getUserProfile, teacherForgotPassword, studentForgotPassword } from "./firebase/auth";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase/config";
 import { getStudents, approveStudent, rejectStudent, blockStudent, unblockStudent } from "./firebase/students";
@@ -243,13 +243,13 @@ export default function KnowArena() {
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if(screen===SC.LOGIN) return (
-    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       {/* Toast */}
       {toast&&<div style={{position:"fixed",top:20,right:20,background:toast.type==="success"?T.success:T.error,color:"#fff",borderRadius:10,padding:"12px 20px",fontWeight:700,zIndex:999,boxShadow:T.shadowM}}>{toast.msg}</div>}
       <div style={{width:"100%",maxWidth:420}}>
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{background:"#fff",borderRadius:20,padding:"18px 24px",display:"inline-block",boxShadow:"0 8px 24px rgba(0,0,0,0.15)"}}>
+          <div style={{background:"#fff",borderRadius:20,padding:"18px 24px",display:"inline-block",boxShadow:"0 8px 24px rgba(0,0,0,0.25)"}}>
             <img src={LOGO_FULL} alt="KnowArena" style={{height:64,display:"block"}}/>
           </div>
           <p style={{color:"rgba(255,255,255,0.85)",fontSize:14,margin:"14px 0 0",fontWeight:600}}>Smart Test Platform · Class 6–12</p>
@@ -259,7 +259,7 @@ export default function KnowArena() {
           <p style={{color:T.textM,fontSize:14,textAlign:"center",marginTop:0,marginBottom:20,fontWeight:600}}>Choose how you want to log in</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:8}}>
             <button onClick={()=>setScreen(SC.TEACHER_LOGIN)}
-              style={{background:T.grad,border:"none",borderRadius:14,padding:"22px 10px",cursor:"pointer",color:"#fff",textAlign:"center"}}>
+              style={{background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",border:"none",borderRadius:14,padding:"22px 10px",cursor:"pointer",color:"#fff",textAlign:"center"}}>
               <div style={{fontSize:32,marginBottom:6}}>👨‍🏫</div>
               <div style={{fontWeight:800,fontSize:15}}>Teacher</div>
               <div style={{fontSize:11,opacity:0.85,marginTop:2}}>Admin Access</div>
@@ -273,8 +273,8 @@ export default function KnowArena() {
           </div>
           <p style={{textAlign:"center",fontSize:12,color:T.textL,margin:"12px 0 0"}}>Teacher: sign in with email & password · Student: use username below</p>
         </Card>
-        <p style={{color:"rgba(255,255,255,0.6)",textAlign:"center",fontSize:12,marginTop:16}}>
-          Demo students: aarav10 · priya10 · rohit10 · sneha9
+        <p style={{color:"rgba(255,255,255,0.65)",textAlign:"center",fontSize:12,marginTop:16,fontWeight:600}}>
+          🎯 Learn. Test. Improve. Repeat.
         </p>
       </div>
     </div>
@@ -282,7 +282,7 @@ export default function KnowArena() {
 
   // ── TEACHER LOGIN ──────────────────────────────────────────────────────────
   if(screen===SC.TEACHER_LOGIN) return (
-    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       {toast&&<div style={{position:"fixed",top:20,right:20,background:toast.type==="success"?T.success:T.error,color:"#fff",borderRadius:10,padding:"12px 20px",fontWeight:700,zIndex:999,boxShadow:T.shadowM}}>{toast.msg}</div>}
       <div style={{width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:24}}>
@@ -300,7 +300,7 @@ export default function KnowArena() {
 
   // ── STUDENT LOGIN ──────────────────────────────────────────────────────────
   if(screen===SC.STUDENT_LOGIN) return (
-    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       <div style={{width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:24}}>
           <div style={{fontSize:36,marginBottom:8}}>🎓</div>
@@ -318,7 +318,7 @@ export default function KnowArena() {
 
   // ── STUDENT SIGNUP ─────────────────────────────────────────────────────────
   if(screen===SC.STUDENT_SIGNUP) return (
-    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       <div style={{width:"100%",maxWidth:420}}>
         <div style={{textAlign:"center",marginBottom:24}}>
           <div style={{fontSize:36,marginBottom:8}}>✍️</div>
@@ -335,7 +335,7 @@ export default function KnowArena() {
 
   // ── PENDING APPROVAL ───────────────────────────────────────────────────────
   if(screen===SC.PENDING_APPROVAL && currentStudent) return (
-    <div style={{minHeight:"100vh",background:T.grad,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       <Card style={{maxWidth:420,textAlign:"center",padding:"36px 24px"}}>
         <div style={{fontSize:48,marginBottom:12}}>{currentStudent.status==="rejected"?"❌":currentStudent.status==="blocked"?"🚫":"⏳"}</div>
         <h2 style={{margin:"0 0 8px",fontSize:20,fontWeight:800,color:T.text}}>
@@ -386,11 +386,13 @@ export default function KnowArena() {
 // TEACHER LOGIN FORM
 // ═══════════════════════════════════════════════════════════════════════════════
 function TeacherLoginForm({onLogin,onBack}){
+  const [mode,setMode]=useState("login"); // "login" | "forgot"
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
   const [showPw,setShowPw]=useState(false);
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
+  const [resetSent,setResetSent]=useState(false);
 
   const handle=async ()=>{
     if(!email.trim()||!password){setError("Enter both email and password");return;}
@@ -407,6 +409,45 @@ function TeacherLoginForm({onLogin,onBack}){
       setLoading(false);
     }
   };
+
+  const handleForgot=async ()=>{
+    if(!email.trim()){setError("Enter your email to reset password");return;}
+    setLoading(true);
+    setError("");
+    try{
+      await teacherForgotPassword(email);
+      setResetSent(true);
+    }catch(e){
+      setError("Could not send reset email. Check the address and try again.");
+    }finally{
+      setLoading(false);
+    }
+  };
+
+  if(mode==="forgot"){
+    return(
+      <Card style={{padding:28}}>
+        <h3 style={{margin:"0 0 6px",fontSize:17,fontWeight:800,color:T.text}}>Reset Password</h3>
+        <p style={{margin:"0 0 16px",fontSize:13,color:T.textM}}>Enter your registered email — we'll send you a password reset link.</p>
+        {resetSent ? (
+          <div style={{background:"#ecfdf5",border:`1px solid ${T.success}33`,borderRadius:10,padding:"14px",color:T.success,fontWeight:700,fontSize:14,textAlign:"center",marginBottom:14}}>
+            ✅ Reset link sent to {email}. Check your inbox.
+          </div>
+        ) : (
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:13,fontWeight:700,color:T.textM,display:"block",marginBottom:6}}>Email</label>
+            <input value={email} onChange={e=>{setEmail(e.target.value);setError("");}}
+              onKeyDown={e=>e.key==="Enter"&&handleForgot()}
+              placeholder="teacher@knowarena.com" type="email"
+              style={{width:"100%",border:`1.5px solid ${error?T.error:T.border}`,borderRadius:10,padding:"12px 14px",fontSize:15,outline:"none",boxSizing:"border-box",color:T.text}}/>
+            {error&&<p style={{color:T.error,fontSize:12,margin:"6px 0 0"}}>{error}</p>}
+          </div>
+        )}
+        {!resetSent && <Btn onClick={handleForgot} disabled={loading} style={{width:"100%",marginBottom:10}}>{loading?"Sending...":"Send Reset Link"}</Btn>}
+        <Btn variant="ghost" onClick={()=>{setMode("login");setResetSent(false);setError("");}} style={{width:"100%"}}>← Back to Login</Btn>
+      </Card>
+    );
+  }
 
   return(
     <Card style={{padding:28}}>
@@ -431,7 +472,10 @@ function TeacherLoginForm({onLogin,onBack}){
         </div>
         {error&&<p style={{color:T.error,fontSize:12,margin:"6px 0 0"}}>{error}</p>}
       </div>
-      <Btn onClick={handle} disabled={loading} style={{width:"100%",marginBottom:10,marginTop:8}}>{loading?"Signing in...":"Sign In →"}</Btn>
+      <div style={{textAlign:"right",marginBottom:14}}>
+        <button onClick={()=>{setMode("forgot");setError("");}} type="button" style={{background:"none",border:"none",color:T.blue,fontWeight:700,fontSize:12,cursor:"pointer",padding:0}}>Forgot password?</button>
+      </div>
+      <Btn onClick={handle} disabled={loading} style={{width:"100%",marginBottom:10}}>{loading?"Signing in...":"Sign In →"}</Btn>
       <Btn variant="ghost" onClick={onBack} style={{width:"100%"}}>← Back</Btn>
     </Card>
   );
@@ -441,10 +485,12 @@ function TeacherLoginForm({onLogin,onBack}){
 // STUDENT LOGIN FORM
 // ═══════════════════════════════════════════════════════════════════════════════
 function StudentLoginForm({onLogin,onBack,onSignup,showToast}){
+  const [mode,setMode]=useState("login"); // "login" | "forgot"
   const [username,setUsername]=useState("");
   const [password,setPassword]=useState("");
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
+  const [resetEmail,setResetEmail]=useState("");
 
   const handle=async ()=>{
     if(!username.trim()||!password){setError("Enter your username and password");return;}
@@ -459,6 +505,46 @@ function StudentLoginForm({onLogin,onBack,onSignup,showToast}){
       setLoading(false);
     }
   };
+
+  const handleForgot=async ()=>{
+    if(!username.trim()){setError("Enter your username to reset password");return;}
+    setLoading(true);
+    setError("");
+    try{
+      const email = await studentForgotPassword(username);
+      setResetEmail(email);
+    }catch(e){
+      setError(e.message || "Could not send reset email. Try again.");
+    }finally{
+      setLoading(false);
+    }
+  };
+
+  if(mode==="forgot"){
+    return(
+      <Card style={{padding:28}}>
+        <h3 style={{margin:"0 0 6px",fontSize:17,fontWeight:800,color:T.text}}>Reset Password</h3>
+        <p style={{margin:"0 0 16px",fontSize:13,color:T.textM}}>Enter your username — we'll send a reset link to the email you signed up with.</p>
+        {resetEmail ? (
+          <div style={{background:"#ecfdf5",border:`1px solid ${T.success}33`,borderRadius:10,padding:"14px",color:T.success,fontWeight:700,fontSize:14,textAlign:"center",marginBottom:14}}>
+            ✅ Reset link sent to {resetEmail}. Check your inbox.
+          </div>
+        ) : (
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:13,fontWeight:700,color:T.textM,display:"block",marginBottom:6}}>Username</label>
+            <input value={username} onChange={e=>{setUsername(e.target.value);setError("");}}
+              onKeyDown={e=>e.key==="Enter"&&handleForgot()}
+              placeholder="e.g. aarav10"
+              style={{width:"100%",border:`1.5px solid ${error?T.error:T.border}`,borderRadius:10,padding:"12px 14px",fontSize:15,outline:"none",boxSizing:"border-box",color:T.text}}/>
+            {error&&<p style={{color:T.error,fontSize:12,margin:"6px 0 0"}}>{error}</p>}
+          </div>
+        )}
+        {!resetEmail && <Btn onClick={handleForgot} disabled={loading} style={{width:"100%",marginBottom:10}}>{loading?"Sending...":"Send Reset Link"}</Btn>}
+        <Btn variant="ghost" onClick={()=>{setMode("login");setResetEmail("");setError("");}} style={{width:"100%"}}>← Back to Login</Btn>
+      </Card>
+    );
+  }
+
   return(
     <Card style={{padding:28}}>
       <div style={{marginBottom:14}}>
@@ -468,13 +554,16 @@ function StudentLoginForm({onLogin,onBack,onSignup,showToast}){
           placeholder="e.g. aarav10"
           style={{width:"100%",border:`1.5px solid ${error?T.error:T.border}`,borderRadius:10,padding:"12px 14px",fontSize:15,outline:"none",boxSizing:"border-box",color:T.text}}/>
       </div>
-      <div style={{marginBottom:16}}>
+      <div style={{marginBottom:10}}>
         <label style={{fontSize:13,fontWeight:700,color:T.textM,display:"block",marginBottom:6}}>Password</label>
         <input value={password} onChange={e=>{setPassword(e.target.value);setError("");}}
           onKeyDown={e=>e.key==="Enter"&&handle()}
           placeholder="••••••••" type="password"
           style={{width:"100%",border:`1.5px solid ${error?T.error:T.border}`,borderRadius:10,padding:"12px 14px",fontSize:15,outline:"none",boxSizing:"border-box",color:T.text}}/>
         {error&&<p style={{color:T.error,fontSize:12,margin:"6px 0 0"}}>{error}</p>}
+      </div>
+      <div style={{textAlign:"right",marginBottom:14}}>
+        <button onClick={()=>{setMode("forgot");setError("");}} type="button" style={{background:"none",border:"none",color:T.blue,fontWeight:700,fontSize:12,cursor:"pointer",padding:0}}>Forgot password?</button>
       </div>
       <Btn onClick={handle} disabled={loading} style={{width:"100%",marginBottom:10}}>{loading?"Signing in...":"Login to KnowArena →"}</Btn>
       <Btn variant="ghost" onClick={onBack} style={{width:"100%",marginBottom:14}}>← Back</Btn>
@@ -490,19 +579,22 @@ function StudentLoginForm({onLogin,onBack,onSignup,showToast}){
 // STUDENT SIGNUP FORM
 // ═══════════════════════════════════════════════════════════════════════════════
 function StudentSignupForm({onSignup,onBack}){
-  const [form,setForm]=useState({name:"",username:"",password:"",mobile:"",cls:6,parentMobile:""});
+  const [form,setForm]=useState({name:"",username:"",password:"",mobile:"",cls:6,parentMobile:"",recoveryEmail:""});
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
 
   const handle=async ()=>{
-    if(!form.name.trim()||!form.username.trim()||!form.password||!form.mobile.trim()){
-      setError("Please fill name, username, password and mobile number");return;
+    if(!form.name.trim()||!form.username.trim()||!form.password||!form.mobile.trim()||!form.recoveryEmail.trim()){
+      setError("Please fill name, username, password, mobile number and email");return;
     }
     if(form.password.length<6){
       setError("Password must be at least 6 characters");return;
     }
     if(!/^\d{10}$/.test(form.mobile.trim())){
       setError("Enter a valid 10-digit mobile number");return;
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.recoveryEmail.trim())){
+      setError("Enter a valid email address");return;
     }
     setLoading(true);
     setError("");
@@ -514,6 +606,7 @@ function StudentSignupForm({onSignup,onBack}){
         mobile: form.mobile.trim(),
         cls: form.cls,
         parentMobile: form.parentMobile.trim() || null,
+        recoveryEmail: form.recoveryEmail.trim(),
       });
       onSignup(stu);
     }catch(e){
@@ -553,6 +646,13 @@ function StudentSignupForm({onSignup,onBack}){
           <input value={form.mobile} onChange={e=>{setForm({...form,mobile:e.target.value.replace(/\D/g,"")});setError("");}}
             placeholder="10-digit mobile number" maxLength={10}
             style={{width:"100%",border:`1.5px solid ${T.border}`,borderRadius:10,padding:"12px 14px",fontSize:15,outline:"none",boxSizing:"border-box",color:T.text}}/>
+        </div>
+        <div>
+          <label style={{fontSize:13,fontWeight:700,color:T.textM,display:"block",marginBottom:6}}>Email</label>
+          <input value={form.recoveryEmail} onChange={e=>{setForm({...form,recoveryEmail:e.target.value});setError("");}}
+            placeholder="you@example.com" type="email"
+            style={{width:"100%",border:`1.5px solid ${T.border}`,borderRadius:10,padding:"12px 14px",fontSize:15,outline:"none",boxSizing:"border-box",color:T.text}}/>
+          <p style={{fontSize:11,color:T.textL,margin:"6px 0 0"}}>Enter your email for updating your password in future</p>
         </div>
         <div>
           <label style={{fontSize:13,fontWeight:700,color:T.textM,display:"block",marginBottom:6}}>Your Class</label>

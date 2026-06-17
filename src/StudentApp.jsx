@@ -79,15 +79,23 @@ function CircularProgress({ percent, size=64, strokeWidth=6, color, trackColor="
 // Shared header used across Home / My Tests / Results / Profile for a consistent look.
 function StudentHeader({ student }) {
   return (
-    <div style={{background:T.grad,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <div>
-          <div style={{fontSize:22,fontWeight:900,color:"#fff",lineHeight:1.1}}>Know<span style={{color:T.gold}}>Arena</span></div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontWeight:600,letterSpacing:0.2}}>The Field of Knowledge</div>
-        </div>
+    <div style={{
+      background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",
+      padding:"16px 16px 18px",display:"flex",alignItems:"flex-start",justifyContent:"space-between",
+      position:"sticky",top:0,zIndex:10,overflow:"hidden",
+    }}>
+      {/* subtle decorative dot pattern, top-right */}
+      <div style={{
+        position:"absolute",top:-30,right:-30,width:140,height:140,borderRadius:"50%",
+        background:"radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 70%)",
+      }}/>
+      <div style={{position:"relative"}}>
+        <div style={{fontSize:23,fontWeight:900,color:"#fff",lineHeight:1.1}}>Know<span style={{color:T.gold}}>Arena</span></div>
+        <div style={{fontSize:11,color:"rgba(255,255,255,0.8)",fontWeight:600,letterSpacing:0.3,marginTop:2}}>The Field of Knowledge</div>
+        <div style={{width:28,height:3,background:T.gold,borderRadius:99,marginTop:6}}/>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",textAlign:"right"}}>Class {student.cls}<br/>Student</div>
+      <div style={{display:"flex",alignItems:"center",gap:8,position:"relative"}}>
+        <div style={{fontSize:11,color:"rgba(255,255,255,0.8)",textAlign:"right"}}>Class {student.cls}<br/>Student</div>
         <StudentAvatar/>
       </div>
     </div>

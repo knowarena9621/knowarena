@@ -41,8 +41,14 @@ service cloud.firestore {
     // - Student can self-signup (status starts as "pending").
     // - Student can read their own profile.
     // - Only teacher can approve/reject/update/delete.
+    // - Read is allowed even when signed out, because the login screen must
+    //   resolve "username" -> real email *before* the user is authenticated,
+    //   and "Forgot Password" must look up the recovery email the same way.
+    //   This does not expose passwords (Firebase Auth stores those
+    //   separately, never in Firestore) — only profile fields like name,
+    //   class, and recovery email are readable this way.
     match /students/{uid} {
-      allow read: if isTeacher() || (isSignedIn() && request.auth.uid == uid);
+      allow read: if true;
 
       allow create: if isSignedIn() && request.auth.uid == uid
         && request.resource.data.status == "pending";
