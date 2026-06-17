@@ -2,8 +2,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
+  fetchSignInMethodsForEmail,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "./config";
 
 // ─── TEACHER LOGIN (email/password) ─────────────────────────────────────────
@@ -22,16 +24,27 @@ function usernameToEmail(username) {
   return `${username.trim().toLowerCase()}@knowarena.student`;
 }
 
-export async function studentSignup({ name, username, password, mobile, cls, parentMobile }) {
-  const email = usernameToEmail(username);
+// Username must be plain alphanumeric (+ underscore/dot) — no "@" or other
+// symbols, since it gets embedded into a fake internal email address
+// (e.g. "name@9621" would otherwise produce "name@9621@knowarena.student",
+// which Firebase rejects as an invalid email).
+const USERNAME_RE = /^[a-zA-Z0-9._]{3,20}$/;
+
+export async function studentSignup({ name, username, password, mobile, cls, parentMobile, recoveryEmail }) {
+  const cleanUsername = username.trim().toLowerCase();
+  if (!USERNAME_RE.test(cleanUsername)) {
+    throw new Error("Username can only contain letters, numbers, dots, and underscores (no @ or spaces).");
+  }
+  const email = usernameToEmail(cleanUsername);
   const cred = await createUserWithEmailAndPassword(auth, email, password);
 
   const profile = {
     name,
-    username: username.trim().toLowerCase(),
+    username: cleanUsername,
     mobile,
     cls: Number(cls),
     parentMobile: parentMobile || null,
+    recoveryEmail: recoveryEmail ? recoveryEmail.trim().toLowerCase() : null,
     status: "pending",
     createdAt: serverTimestamp(),
     scores: { math: 0, sci: 0, eng: 0 },

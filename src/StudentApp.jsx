@@ -57,7 +57,43 @@ const StudentAvatar = ({size=36}) => (
   </div>
 );
 
-// View inside student app
+// Circular progress ring — used for score displays (profile avatar ring, result cards)
+function CircularProgress({ percent, size=64, strokeWidth=6, color, trackColor="#e2e8f0", children }) {
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (Math.min(percent,100) / 100) * c;
+  const ringColor = color || (percent>=80?T.success:percent>=60?T.gold:T.error);
+  return (
+    <div style={{position:"relative",width:size,height:size,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <svg width={size} height={size} style={{position:"absolute",top:0,left:0,transform:"rotate(-90deg)"}}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor} strokeWidth={strokeWidth}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={ringColor} strokeWidth={strokeWidth}
+          strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+          style={{transition:"stroke-dashoffset 0.6s ease"}}/>
+      </svg>
+      {children}
+    </div>
+  );
+}
+
+// Shared header used across Home / My Tests / Results / Profile for a consistent look.
+function StudentHeader({ student }) {
+  return (
+    <div style={{background:T.grad,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:900,color:"#fff",lineHeight:1.1}}>Know<span style={{color:T.gold}}>Arena</span></div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontWeight:600,letterSpacing:0.2}}>The Field of Knowledge</div>
+        </div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",textAlign:"right"}}>Class {student.cls}<br/>Student</div>
+        <StudentAvatar/>
+      </div>
+    </div>
+  );
+}
+
 const SV = { DASH:"dash", MY_TESTS:"mytests", TEST_DETAIL:"detail", QUIZ:"quiz", RESULT:"result", MY_RESULTS:"myresults", PROFILE:"profile" };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -65,6 +101,7 @@ const SV = { DASH:"dash", MY_TESTS:"mytests", TEST_DETAIL:"detail", QUIZ:"quiz",
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function StudentApp({ student, onLogout, showToast }) {
   const [view, setView]               = useState(SV.DASH);
+  const [menuOpen, setMenuOpen]       = useState(false);
   const [tests, setTests]             = useState([]);
   const [testsLoading, setTestsLoading] = useState(true);
   const [selectedTest, setSelectedTest] = useState(null);
@@ -169,19 +206,7 @@ export default function StudentApp({ student, onLogout, showToast }) {
 
   return (
     <div style={{minHeight:"100vh",background:T.bg,fontFamily:"'Segoe UI',system-ui,sans-serif",paddingBottom:70}}>
-      {/* Top bar */}
-      <div style={{background:T.grad,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div>
-            <div style={{fontSize:22,fontWeight:900,color:"#fff",lineHeight:1.1}}>Know<span style={{color:T.gold}}>Arena</span></div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontWeight:600,letterSpacing:0.2}}>The Field of Knowledge</div>
-          </div>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",textAlign:"right"}}>Class {student.cls}<br/>Student</div>
-          <StudentAvatar/>
-        </div>
-      </div>
+      <StudentHeader student={student}/>
 
       <div style={{padding:"18px 16px",maxWidth:540,margin:"0 auto"}}>
 
@@ -253,31 +278,66 @@ export default function StudentApp({ student, onLogout, showToast }) {
 function DashboardView({ student, tests, myResults, testsLoading, onOpenTest, onGoToTests, onGoToResults, attemptedIds }) {
   const available = tests.filter(t=>!attemptedIds.has(t.id));
   const avgScore = myResults.length ? Math.round(myResults.reduce((s,r)=>s+r.percentage,0)/myResults.length) : 0;
+  const firstName = student.name.split(" ")[0];
+
+  // Subject-wise average, computed from real attempt history.
+  const subjectStats = (() => {
+    const bySubject = {};
+    myResults.forEach(r => {
+      const subj = r.subject || "Other";
+      if (!bySubject[subj]) bySubject[subj] = [];
+      bySubject[subj].push(r.percentage);
+    });
+    return Object.entries(bySubject).map(([subject, pcts]) => ({
+      subject,
+      avg: Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length),
+    })).sort((a,b)=>b.avg-a.avg);
+  })();
+
+  const SUBJECT_COLORS = {
+    Mathematics:"#1a56db", Science:"#10b981", English:"#8b5cf6", Hindi:"#f59e0b",
+    "Social Science":"#f97316", Physics:"#0ea5e9", Chemistry:"#ec4899", Biology:"#84cc16",
+    "Computer Science":"#6366f1", Reasoning:"#14b8a6", "General Knowledge":"#eab308",
+  };
 
   return (
     <div>
-      {/* Welcome card */}
-      <div style={{background:T.grad,borderRadius:18,padding:"20px",marginBottom:20,color:"#fff"}}>
-        <div style={{fontSize:13,opacity:0.8,marginBottom:4}}>Welcome back 👋</div>
-        <div style={{fontSize:22,fontWeight:900}}>{student.name.split(" ")[0]}</div>
-        <div style={{fontSize:13,opacity:0.8,marginTop:4}}>Class {student.cls} · {available.length} test{available.length!==1?"s":""} available</div>
-        <div style={{display:"flex",gap:16,marginTop:16,borderTop:"1px solid rgba(255,255,255,0.2)",paddingTop:14}}>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900}}>{myResults.length}</div>
-            <div style={{fontSize:11,opacity:0.75}}>Tests Done</div>
-          </div>
-          <div style={{width:1,background:"rgba(255,255,255,0.2)"}}/>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900}}>{avgScore}%</div>
-            <div style={{fontSize:11,opacity:0.75}}>Avg Score</div>
-          </div>
-          <div style={{width:1,background:"rgba(255,255,255,0.2)"}}/>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900}}>{available.length}</div>
-            <div style={{fontSize:11,opacity:0.75}}>Pending</div>
-          </div>
+      {/* Welcome banner */}
+      <div style={{background:T.grad,borderRadius:18,padding:"22px 20px",marginBottom:18,color:"#fff",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:-20,right:-20,fontSize:90,opacity:0.12,transform:"rotate(15deg)"}}>🎓</div>
+        <div style={{fontSize:13,opacity:0.85,marginBottom:4,position:"relative"}}>Welcome back 👋</div>
+        <div style={{fontSize:26,fontWeight:900,position:"relative"}}>{firstName}</div>
+        <div style={{fontSize:13,opacity:0.85,marginTop:4,position:"relative"}}>Class {student.cls} · {available.length} test{available.length!==1?"s":""} available</div>
+        <div style={{marginTop:14,position:"relative"}}>
+          <span style={{background:"rgba(255,255,255,0.18)",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700}}>⭐ Keep learning, keep growing! 🚀</span>
         </div>
       </div>
+
+      {/* Stat cards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
+        <StatCard icon="📝" iconBg="#dcfce7" value={myResults.length} label="Tests Done" caption="Keep it up!" trendColor={T.success}/>
+        <StatCard icon="🎯" iconBg="#ffedd5" value={`${avgScore}%`} label="Avg Score" caption={avgScore>=70?"You're on fire! 🔥":"Keep pushing!"} trendColor={T.gold}/>
+        <StatCard icon="⏳" iconBg="#ede9fe" value={available.length} label="Pending" caption={available.length===0?"All caught up! 🎉":"Let's go!"} trendColor="#8b5cf6"/>
+      </div>
+
+      {/* Subject overview (only if attempt history exists) */}
+      {subjectStats.length>0 && (
+        <Card style={{marginBottom:18,padding:"16px"}}>
+          <h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:800,color:T.text}}>Subject Overview</h3>
+          {subjectStats.map(s=>(
+            <div key={s.subject} style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+              <div style={{width:30,height:30,borderRadius:8,background:T.blueL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
+                {SUBJECT_ICONS[s.subject]||"📝"}
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:T.text,width:88,flexShrink:0}}>{s.subject}</div>
+              <div style={{flex:1,height:8,background:T.bg,borderRadius:99,overflow:"hidden"}}>
+                <div style={{width:`${s.avg}%`,height:"100%",background:SUBJECT_COLORS[s.subject]||T.blue,borderRadius:99}}/>
+              </div>
+              <div style={{fontSize:13,fontWeight:800,color:T.text,width:36,textAlign:"right",flexShrink:0}}>{s.avg}%</div>
+            </div>
+          ))}
+        </Card>
+      )}
 
       {/* Available tests */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -306,22 +366,47 @@ function DashboardView({ student, tests, myResults, testsLoading, onOpenTest, on
             <button onClick={onGoToResults} style={{background:"none",border:"none",color:T.blue,fontWeight:700,fontSize:13,cursor:"pointer"}}>See All →</button>
           </div>
           {myResults.slice(0,2).map(r=>(
-            <Card key={r.id} style={{marginBottom:10,padding:"14px 16px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontWeight:700,fontSize:14,color:T.text,marginBottom:4}}>{r.testTitle}</div>
-                  <div style={{fontSize:12,color:T.textM}}>{r.subject}</div>
-                </div>
-                <div style={{textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:900,color:r.percentage>=80?T.success:r.percentage>=60?T.gold:T.error}}>{r.percentage}%</div>
-                  <div style={{fontSize:11,color:T.textM}}>{r.score}/{r.totalMarks}</div>
-                </div>
-              </div>
-            </Card>
+            <RecentResultCard key={r.id} r={r}/>
           ))}
         </>
       )}
     </div>
+  );
+}
+
+function StatCard({ icon, iconBg, value, label, caption, trendColor }) {
+  return (
+    <Card style={{padding:"14px 10px",textAlign:"center"}}>
+      <div style={{width:38,height:38,borderRadius:10,background:iconBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,margin:"0 auto 8px"}}>{icon}</div>
+      <div style={{fontSize:20,fontWeight:900,color:T.text}}>{value}</div>
+      <div style={{fontSize:11,color:T.textM,fontWeight:600,marginTop:1}}>{label}</div>
+      <div style={{fontSize:10,color:trendColor,fontWeight:700,marginTop:4}}>{caption}</div>
+    </Card>
+  );
+}
+
+function RecentResultCard({ r }) {
+  const ringColor = r.percentage>=80?T.success:r.percentage>=60?T.gold:T.error;
+  const mood = r.percentage>=90?"Excellent! 🏆":r.percentage>=70?"Good Job! ⭐":r.percentage>=50?"Keep Trying 💪":"Needs Work";
+  return (
+    <Card style={{marginBottom:10,padding:"14px 16px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:14}}>
+        <div style={{width:40,height:40,borderRadius:10,background:T.blueL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0}}>
+          {SUBJECT_ICONS[r.subject]||"📝"}
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:14,color:T.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.testTitle}</div>
+          <div style={{fontSize:12,color:T.textM}}>{r.subject}</div>
+        </div>
+        <CircularProgress percent={r.percentage} size={56} strokeWidth={5} color={ringColor}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:13,fontWeight:900,color:T.text}}>{r.percentage}%</div>
+            <div style={{fontSize:8,color:T.textM}}>{r.score}/{r.totalMarks}</div>
+          </div>
+        </CircularProgress>
+        <div style={{fontSize:11,color:T.textM,fontWeight:700,textAlign:"right",flexShrink:0,width:62}}>{mood}</div>
+      </div>
+    </Card>
   );
 }
 
@@ -789,23 +874,31 @@ function MyResultsView({ results, onBack }) {
       )}
 
       <div style={{display:"grid",gap:12}}>
-        {results.map(r=>(
-          <Card key={r.id} style={{padding:"14px 16px",borderLeft:`4px solid ${r.percentage>=80?T.success:r.percentage>=60?T.gold:T.error}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:14,color:T.text,marginBottom:4}}>{r.testTitle}</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  <Badge color={T.blue}>{r.subject}</Badge>
-                  <Badge color={T.textM}>✅ {r.correctCount} · ❌ {r.wrongCount} · ⏭ {r.skippedCount}</Badge>
+        {results.map(r=>{
+          const ringColor = r.percentage>=80?T.success:r.percentage>=60?T.gold:T.error;
+          return (
+            <Card key={r.id} style={{padding:"14px 16px",borderLeft:`4px solid ${ringColor}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:38,height:38,borderRadius:10,background:T.blueL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
+                  {SUBJECT_ICONS[r.subject]||"📝"}
                 </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:14,color:T.text,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.testTitle}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <Badge color={T.blue}>{r.subject}</Badge>
+                    <Badge color={T.textM}>✅ {r.correctCount} · ❌ {r.wrongCount} · ⏭ {r.skippedCount}</Badge>
+                  </div>
+                </div>
+                <CircularProgress percent={r.percentage} size={52} strokeWidth={5} color={ringColor}>
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:12,fontWeight:900,color:T.text}}>{r.percentage}%</div>
+                    <div style={{fontSize:8,color:T.textM}}>{r.score}/{r.totalMarks}</div>
+                  </div>
+                </CircularProgress>
               </div>
-              <div style={{textAlign:"center",flexShrink:0}}>
-                <div style={{fontSize:24,fontWeight:900,color:r.percentage>=80?T.success:r.percentage>=60?T.gold:T.error}}>{r.percentage}%</div>
-                <div style={{fontSize:11,color:T.textM}}>{r.score}/{r.totalMarks}</div>
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
@@ -817,16 +910,31 @@ function MyResultsView({ results, onBack }) {
 function ProfileView({ student, myResults, onLogout, onBack }) {
   const avgScore = myResults.length ? Math.round(myResults.reduce((s,r)=>s+r.percentage,0)/myResults.length) : 0;
   const bestScore = myResults.length ? Math.max(...myResults.map(r=>r.percentage)) : 0;
+  const perfectCount = myResults.filter(r=>r.percentage===100).length;
+  const subjectCount = new Set(myResults.map(r=>r.subject).filter(Boolean)).size;
+
+  // Achievements derived from real attempt data — no fake numbers.
+  const achievements = [
+    { icon:"🏆", color:"#10b981", bg:"#dcfce7", title:`${myResults.length} Test${myResults.length!==1?"s":""}`, sub:"Completed", unlocked: myResults.length>0 },
+    { icon:"🎯", color:"#8b5cf6", bg:"#ede9fe", title:`Perfect Score${perfectCount!==1?"s":""}`, sub:`x${perfectCount}`, unlocked: perfectCount>0 },
+    { icon:"⭐", color:"#f59e0b", bg:"#fff8e7", title:"Best Score", sub:`${bestScore}%`, unlocked: bestScore>0 },
+    { icon:"📚", color:"#1a56db", bg:T.blueL, title:"Subjects", sub:`${subjectCount} explored`, unlocked: subjectCount>0 },
+  ];
 
   return (
     <div>
       <Card style={{textAlign:"center",marginBottom:16,padding:"28px 20px"}}>
-        <div style={{margin:"0 auto 12px",display:"flex",justifyContent:"center"}}><StudentAvatar size={68}/></div>
+        <div style={{margin:"0 auto 12px",display:"flex",justifyContent:"center"}}>
+          <CircularProgress percent={avgScore} size={86} strokeWidth={6} color={T.blue} trackColor={T.blueL}>
+            <StudentAvatar size={66}/>
+          </CircularProgress>
+        </div>
         <div style={{fontSize:20,fontWeight:800,color:T.text,marginBottom:4}}>{student.name}</div>
         <Badge color={T.blue}>Class {student.cls}</Badge>
+        <div style={{fontSize:12,color:T.textM,marginTop:10}}>⭐ Keep learning, keep growing! 🚀</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:18}}>
-          {[["🎯",`${avgScore}%`,"Avg Score"],["📝",myResults.length,"Tests Done"],["🏆",`${bestScore}%`,"Best Score"]].map(([ic,val,lbl])=>(
-            <div key={lbl} style={{background:T.bg,borderRadius:10,padding:"12px 8px",textAlign:"center"}}>
+          {[["🎯",`${avgScore}%`,"Avg Score","#fef2f2"],["📝",myResults.length,"Tests Done",T.blueL],["🏆",`${bestScore}%`,"Best Score","#fff8e7"]].map(([ic,val,lbl,bg])=>(
+            <div key={lbl} style={{background:bg,borderRadius:10,padding:"12px 8px",textAlign:"center"}}>
               <div style={{fontSize:20}}>{ic}</div>
               <div style={{fontSize:18,fontWeight:900,color:T.blue}}>{val}</div>
               <div style={{fontSize:10,color:T.textM}}>{lbl}</div>
@@ -836,6 +944,7 @@ function ProfileView({ student, myResults, onLogout, onBack }) {
       </Card>
 
       <Card style={{marginBottom:14}}>
+        <h3 style={{margin:"0 0 6px",fontSize:14,fontWeight:800,color:T.text}}>Personal Information</h3>
         {[["📱","Mobile",student.mobile||"—"],["👤","Username",student.username||"—"],["🏫","Class","Class "+student.cls]].map(([ic,label,val])=>(
           <div key={label} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:`1px solid ${T.border}`}}>
             <span style={{fontSize:18}}>{ic}</span>
@@ -843,6 +952,19 @@ function ProfileView({ student, myResults, onLogout, onBack }) {
             <span style={{fontSize:14,fontWeight:600,color:T.text}}>{val}</span>
           </div>
         ))}
+      </Card>
+
+      <Card style={{marginBottom:14}}>
+        <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:800,color:T.text}}>Achievements 🎖️</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
+          {achievements.map(a=>(
+            <div key={a.title} style={{background:a.unlocked?a.bg:T.bg,borderRadius:12,padding:"14px 10px",textAlign:"center",opacity:a.unlocked?1:0.5}}>
+              <div style={{fontSize:24,marginBottom:4}}>{a.icon}</div>
+              <div style={{fontSize:12,fontWeight:800,color:T.text}}>{a.title}</div>
+              <div style={{fontSize:11,color:T.textM,fontWeight:600}}>{a.sub}</div>
+            </div>
+          ))}
+        </div>
       </Card>
 
       <button onClick={onLogout} style={{width:"100%",background:T.error,border:"none",borderRadius:12,padding:"14px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer"}}>🚪 Logout</button>
