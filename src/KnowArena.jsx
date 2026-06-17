@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { teacherLogin, studentSignup, studentLogin, logout as fbLogout, getUserProfile, teacherForgotPassword, studentForgotPassword } from "./firebase/auth";
+import { postNotice, getAllNotices, deleteNotice } from "./firebase/notices";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase/config";
 import { getStudents, approveStudent, rejectStudent, blockStudent, unblockStudent } from "./firebase/students";
@@ -367,6 +368,7 @@ export default function KnowArena() {
       refreshStudents={refreshStudents}
       refreshTeacherData={refreshTeacherData}
       teacherUid={currentTeacher?.uid}
+      teacherName={currentTeacher?.name}
     />
   );
 
@@ -682,7 +684,7 @@ function StudentSignupForm({onSignup,onBack}){
 // ═══════════════════════════════════════════════════════════════════════════════
 // TEACHER DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setTab,onLogout,darkMode,setDarkMode,showToast,toast,bg,cardBg,textC,borderC,refreshStudents,refreshTeacherData,teacherUid}){
+function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setTab,onLogout,darkMode,setDarkMode,showToast,toast,bg,cardBg,textC,borderC,refreshStudents,refreshTeacherData,teacherUid,teacherName}){
   const NAV = [
     {id:"dashboard",icon:"📊",label:"Dashboard"},
     {id:"approvals",icon:"✅",label:"Approvals"},
@@ -690,6 +692,7 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
     {id:"rejected",icon:"🚫",label:"Rejected"},
     {id:"tests",icon:"📝",label:"Tests"},
     {id:"questionbank",icon:"📚",label:"Question Bank"},
+    {id:"notices",icon:"📣",label:"Notices"},
     {id:"leaderboard",icon:"🏆",label:"Leaderboard"},
     {id:"analytics",icon:"📈",label:"Analytics"},
   ];
@@ -708,18 +711,27 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
       {toast&&<div style={{position:"fixed",top:20,right:20,background:toast.type==="success"?T.success:T.error,color:"#fff",borderRadius:10,padding:"12px 20px",fontWeight:700,zIndex:999,boxShadow:T.shadowM}}>{toast.msg}</div>}
 
       {/* Top bar (mobile) */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:T.grad,position:"sticky",top:0,zIndex:60}}>
-        <button onClick={()=>setSideOpen(true)} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff",fontSize:20}}>
+      <div style={{
+        display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",
+        background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",
+        position:"sticky",top:0,zIndex:60,overflow:"hidden",
+      }}>
+        <div style={{
+          position:"absolute",top:-30,right:-30,width:140,height:140,borderRadius:"50%",
+          background:"radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 70%)",
+        }}/>
+        <button onClick={()=>setSideOpen(true)} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff",fontSize:20,position:"relative"}}>
           ☰
         </button>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,position:"relative"}}>
           <img src={LOGO_ICON} alt="" style={{height:26,width:"auto"}}/>
           <div style={{lineHeight:1.1}}>
             <div style={{fontSize:16,fontWeight:900,color:"#fff"}}>Know<span style={{color:T.gold}}>Arena</span></div>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.75)",fontWeight:600}}>The Field of Knowledge</div>
+            <div style={{fontSize:9,color:"rgba(255,255,255,0.8)",fontWeight:600}}>The Field of Knowledge</div>
+            <div style={{width:20,height:2,background:T.gold,borderRadius:99,marginTop:3}}/>
           </div>
         </div>
-        <div style={{width:38}}/>
+        <div style={{width:38,position:"relative"}}/>
       </div>
 
       {/* Overlay */}
@@ -728,7 +740,7 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
       )}
 
       {/* Sidebar (slide-in) */}
-      <div style={{position:"fixed",top:0,left:sideOpen?0:-260,width:220,height:"100vh",background:T.grad,padding:"24px 0",display:"flex",flexDirection:"column",zIndex:80,transition:"left 0.25s ease",boxShadow:sideOpen?"4px 0 24px rgba(0,0,0,0.25)":"none"}}>
+      <div style={{position:"fixed",top:0,left:sideOpen?0:-260,width:220,height:"100vh",background:"linear-gradient(135deg,#0c1d4e 0%,#15347a 45%,#1a56db 100%)",padding:"24px 0",display:"flex",flexDirection:"column",zIndex:80,transition:"left 0.25s ease",boxShadow:sideOpen?"4px 0 24px rgba(0,0,0,0.25)":"none"}}>
         <div style={{padding:"0 20px 24px",borderBottom:"1px solid rgba(255,255,255,0.15)",display:"flex",alignItems:"center",gap:10}}>
           <img src={LOGO_ICON} alt="" style={{height:34,width:"auto"}}/>
           <div>
@@ -769,6 +781,7 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
         {tab==="rejected"&&<TeacherRejected students={students} setStudents={setStudents} showToast={showToast} refreshStudents={refreshStudents}/>}
         {tab==="tests"&&<TeacherTestsV2 T={T} Card={Card} Btn={Btn} Badge={Badge} CLASSES={CLASSES} CLASS_SUBJECTS={CLASS_SUBJECTS} TEST_TYPES={TEST_TYPES} SUBJECT_ICONS={SUBJECT_ICONS} showToast={showToast} teacherUid={teacherUid}/>}
         {tab==="questionbank"&&<QuestionBank T={T} Card={Card} Btn={Btn} Badge={Badge} CLASSES={CLASSES} CLASS_SUBJECTS={CLASS_SUBJECTS} SUBJECT_ICONS={SUBJECT_ICONS} showToast={showToast} teacherUid={teacherUid}/>}
+        {tab==="notices"&&<TeacherNotices showToast={showToast} teacherName={teacherName}/>}
         {tab==="leaderboard"&&<Leaderboard students={students} cardBg={cardBg} textC={textC} borderC={borderC}/>}
         {tab==="analytics"&&<Analytics students={students} attempts={attempts} tests={tests} cardBg={cardBg} textC={textC} borderC={borderC}/>}
       </div>
@@ -776,8 +789,106 @@ function TeacherDashboard({students,setStudents,tests,setTests,attempts,tab,setT
   );
 }
 
-// ── Teacher Dashboard Home ─────────────────────────────────────────────────
-function TeacherDashHome({students,tests,attempts}){
+// ── Teacher Notices (Send Notice / Daily Quotes) ────────────────────────────
+function TeacherNotices({showToast, teacherName}){
+  const [message,setMessage]=useState("");
+  const [cls,setCls]=useState("all");
+  const [notices,setNotices]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [sending,setSending]=useState(false);
+
+  const load=async()=>{
+    setLoading(true);
+    try{ setNotices(await getAllNotices()); }
+    catch(e){ console.error(e); showToast("Could not load notices","error"); }
+    finally{ setLoading(false); }
+  };
+  useEffect(()=>{ load(); },[]);
+
+  const send=async()=>{
+    if(!message.trim()){ showToast("Write a message first","error"); return; }
+    setSending(true);
+    try{
+      await postNotice({ message, cls: cls==="all"?null:cls, teacherName });
+      setMessage("");
+      showToast("Notice sent! 📣");
+      await load();
+    }catch(e){
+      console.error(e);
+      showToast("Failed to send notice","error");
+    }finally{
+      setSending(false);
+    }
+  };
+
+  const remove=async(id)=>{
+    try{
+      await deleteNotice(id);
+      setNotices(prev=>prev.filter(n=>n.id!==id));
+      showToast("Notice removed");
+    }catch(e){
+      console.error(e);
+      showToast("Failed to remove notice","error");
+    }
+  };
+
+  const fmtDate = (ts) => {
+    if(!ts?.toDate) return "";
+    return ts.toDate().toLocaleDateString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+  };
+
+  return(
+    <div>
+      <h2 style={{margin:"0 0 4px",fontSize:22,fontWeight:800,color:T.text}}>Notices</h2>
+      <p style={{margin:"0 0 20px",color:T.textM,fontSize:13}}>Send announcements to your students. A motivational quote also rotates daily, automatically.</p>
+
+      <Card style={{marginBottom:20,background:"#f0f4ff",border:`1.5px solid ${T.blue}33`}}>
+        <h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:700,color:T.blue}}>📣 Send New Notice</h3>
+        <div style={{marginBottom:12}}>
+          <label style={{fontSize:12,fontWeight:700,color:T.textM,display:"block",marginBottom:6}}>Message</label>
+          <textarea value={message} onChange={e=>setMessage(e.target.value)}
+            placeholder="e.g. Tomorrow's Mathematics test has been postponed to Friday."
+            rows={3}
+            style={{width:"100%",border:`1.5px solid ${T.border}`,borderRadius:10,padding:"10px 12px",fontSize:14,outline:"none",boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:12,fontWeight:700,color:T.textM,display:"block",marginBottom:6}}>Send to</label>
+          <select value={cls} onChange={e=>setCls(e.target.value)}
+            style={{width:"100%",border:`1.5px solid ${T.border}`,borderRadius:10,padding:"10px 12px",fontSize:14,background:"#fff"}}>
+            <option value="all">All Classes</option>
+            {CLASSES.map(c=><option key={c} value={c}>Class {c} only</option>)}
+          </select>
+        </div>
+        <Btn onClick={send} disabled={sending} style={{width:"100%"}}>{sending?"Sending...":"Send Notice"}</Btn>
+      </Card>
+
+      <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:700,color:T.text}}>Sent Notices</h3>
+      {loading && <Card style={{textAlign:"center",padding:"24px"}}><p style={{color:T.textM,margin:0}}>⏳ Loading...</p></Card>}
+      {!loading && notices.length===0 && (
+        <Card style={{textAlign:"center",padding:"24px 16px"}}>
+          <div style={{fontSize:28,marginBottom:8}}>📭</div>
+          <p style={{color:T.textM,margin:0,fontSize:14}}>No notices sent yet.</p>
+        </Card>
+      )}
+      {notices.map(n=>(
+        <Card key={n.id} style={{marginBottom:10,padding:"14px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+            <div style={{flex:1}}>
+              <p style={{margin:"0 0 6px",fontSize:14,color:T.text}}>{n.message}</p>
+              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                <Badge color={T.blue}>{n.cls?`Class ${n.cls}`:"All Classes"}</Badge>
+                <span style={{fontSize:11,color:T.textL}}>{fmtDate(n.createdAt)}</span>
+              </div>
+            </div>
+            <button onClick={()=>remove(n.id)} style={{background:"none",border:"none",color:T.error,cursor:"pointer",fontSize:16,padding:4,flexShrink:0}}>🗑️</button>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+
   const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
   const avgScore = approvedStudents.length
     ? Math.round(approvedStudents.reduce((a,s)=>a+s.avg,0)/approvedStudents.length)

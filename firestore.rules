@@ -108,6 +108,16 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── notices/{noticeId} ────────────────────────────────────────────────
+    // Teacher posts notices/announcements (optionally scoped to a class).
+    // Students (once approved) can read all notices — class filtering
+    // happens client-side. Only the teacher can create/delete.
+    match /notices/{noticeId} {
+      allow read: if isTeacher() || (isStudent() && studentIsApproved());
+      allow create, delete: if isTeacher();
+      allow update: if false;
+    }
+
     // ── leaderboard/{cls} ─────────────────────────────────────────────────
     // Read-only for everyone signed in. Written only by Cloud Functions
     // (Admin SDK bypasses these rules).
