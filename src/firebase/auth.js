@@ -75,7 +75,39 @@ export async function studentLogin(username, password) {
     await signOut(auth);
     throw new Error("Student profile not found.");
   }
-  return { uid: cred.user.uid, ...studentDoc.data() };
+  const updatedStreak = await updateLoginStreak(cred.user.uid, studentDoc.data());
+  return { uid: cred.user.uid, ...studentDoc.data(), ...updatedStreak };
+}
+
+/**
+ * Tracks daily-login streaks. Called once per login/session-restore.
+ * - Same day as last login -> streak unchanged.
+ * - Exactly one day after last login -> streak +1.
+ * - Any bigger gap (or first ever login) -> streak resets to 1.
+ * Stored as plain fields on the student doc so the dashboard can read them
+ * without a separate collection or any backend function.
+ */
+async function updateLoginStreak(uid, currentData) {
+  const todayStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const lastLoginDate = currentData.lastLoginDate;
+
+  if (lastLoginDate === todayStr) {
+    return { lastLoginDate, streakCount: currentData.streakCount || 1 };
+  }
+
+  let newStreak = 1;
+  if (lastLoginDate) {
+    const prev = new Date(lastLoginDate + "T00:00:00");
+    const today = new Date(todayStr + "T00:00:00");
+    const diffDays = Math.round((today - prev) / 86400000);
+    if (diffDays === 1) {
+      newStreak = (currentData.streakCount || 0) + 1;
+    }
+  }
+
+  const update = { lastLoginDate: todayStr, streakCount: newStreak };
+  await updateDoc(doc(db, "students", uid), update).catch(() => {});
+  return update;
 }
 
 /**
@@ -123,7 +155,9 @@ export async function getUserProfile(uid) {
   }
   const studentDoc = await getDoc(doc(db, "students", uid));
   if (studentDoc.exists()) {
-    return { role: "student", profile: { uid, ...studentDoc.data() } };
+    const data = studentDoc.data();
+    const updatedStreak = await updateLoginStreak(uid, data);
+    return { role: "student", profile: { uid, ...data, ...updatedStreak } };
   }
   return null;
 }

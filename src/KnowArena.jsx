@@ -433,7 +433,8 @@ function TeacherLoginForm({onLogin,onBack}){
         <p style={{margin:"0 0 16px",fontSize:13,color:T.textM}}>Enter your registered email — we'll send you a password reset link.</p>
         {resetSent ? (
           <div style={{background:"#ecfdf5",border:`1px solid ${T.success}33`,borderRadius:10,padding:"14px",color:T.success,fontWeight:700,fontSize:14,textAlign:"center",marginBottom:14}}>
-            ✅ Reset link sent to {email}. Check your inbox.
+            <div>✅ Reset link sent to {email}. Check your inbox.</div>
+            <div style={{fontWeight:600,fontSize:12,marginTop:8,opacity:0.85}}>📁 Not seeing it? Please check your Spam / Junk folder too.</div>
           </div>
         ) : (
           <div style={{marginBottom:14}}>
@@ -529,7 +530,8 @@ function StudentLoginForm({onLogin,onBack,onSignup,showToast}){
         <p style={{margin:"0 0 16px",fontSize:13,color:T.textM}}>Enter your username — we'll send a reset link to the email you signed up with.</p>
         {resetEmail ? (
           <div style={{background:"#ecfdf5",border:`1px solid ${T.success}33`,borderRadius:10,padding:"14px",color:T.success,fontWeight:700,fontSize:14,textAlign:"center",marginBottom:14}}>
-            ✅ Reset link sent to {resetEmail}. Check your inbox.
+            <div>✅ Reset link sent to {resetEmail}. Check your inbox.</div>
+            <div style={{fontWeight:600,fontSize:12,marginTop:8,opacity:0.85}}>📁 Not seeing it? Please check your Spam / Junk folder too.</div>
           </div>
         ) : (
           <div style={{marginBottom:14}}>
@@ -888,7 +890,7 @@ function TeacherNotices({showToast, teacherName}){
   );
 }
 
-function TeacherDashHome({students, tests, attempts}) {
+
   const approvedStudents = students.filter(s=>s.status==="approved"||s.status==="blocked");
   const avgScore = approvedStudents.length
     ? Math.round(approvedStudents.reduce((a,s)=>a+s.avg,0)/approvedStudents.length)
@@ -983,6 +985,7 @@ function TeacherDashHome({students, tests, attempts}) {
     </div>
   );
 }
+
 // ── Teacher Approvals ───────────────────────────────────────────────────────
 function TeacherApprovals({students,setStudents,showToast,refreshStudents}){
   const pending = students.filter(s=>s.status==="pending");

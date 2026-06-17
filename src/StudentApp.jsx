@@ -391,6 +391,29 @@ function DashboardView({ student, tests, myResults, testsLoading, onOpenTest, on
         <StatCard icon="⏳" iconBg="#ede9fe" value={available.length} label="Pending" caption={available.length===0?"All caught up! 🎉":"Let's go!"} trendColor="#8b5cf6"/>
       </div>
 
+      {/* Login streak — real data, tracked on every login/session restore */}
+      {(student.streakCount||0)>0 && (
+        <Card style={{marginBottom:18,padding:"14px 16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <div style={{width:42,height:42,borderRadius:"50%",background:"#fff3e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🔥</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:800,fontSize:14,color:T.text}}>{student.streakCount} Day Streak 🔥</div>
+              <div style={{fontSize:11,color:T.textM,marginBottom:6}}>Keep the streak alive!</div>
+              <div style={{display:"flex",gap:5}}>
+                {Array.from({length:7}).map((_,i)=>(
+                  <div key={i} style={{
+                    width:20,height:20,borderRadius:"50%",fontSize:9,fontWeight:800,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    background:i<Math.min(student.streakCount,7)?T.success:T.bg,
+                    color:i<Math.min(student.streakCount,7)?"#fff":T.textL,
+                  }}>{i+1}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Subject overview (only if attempt history exists) */}
       {subjectStats.length>0 && (
         <Card style={{marginBottom:18,padding:"16px"}}>
@@ -932,10 +955,12 @@ function ResultScreen({ result, test, student, onBack }) {
 // MY RESULTS VIEW
 // ═══════════════════════════════════════════════════════════════════════════════
 function MyResultsView({ results, onBack }) {
+  const [expandedId, setExpandedId] = useState(null);
+
   return (
     <div>
       <h2 style={{margin:"0 0 4px",fontSize:20,fontWeight:800,color:T.text}}>My Results</h2>
-      <p style={{color:T.textM,fontSize:13,margin:"0 0 16px"}}>{results.length} test{results.length!==1?"s":""} completed</p>
+      <p style={{color:T.textM,fontSize:13,margin:"0 0 16px"}}>{results.length} test{results.length!==1?"s":""} completed · Tap a result to see right/wrong answers</p>
 
       {results.length===0 && (
         <Card style={{textAlign:"center",padding:"30px 16px"}}>
@@ -947,26 +972,61 @@ function MyResultsView({ results, onBack }) {
       <div style={{display:"grid",gap:12}}>
         {results.map(r=>{
           const ringColor = r.percentage>=80?T.success:r.percentage>=60?T.gold:T.error;
+          const isOpen = expandedId===r.id;
           return (
-            <Card key={r.id} style={{padding:"14px 16px",borderLeft:`4px solid ${ringColor}`}}>
-              <div style={{display:"flex",alignItems:"center",gap:14}}>
-                <div style={{width:38,height:38,borderRadius:10,background:T.blueL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
-                  {SUBJECT_ICONS[r.subject]||"📝"}
+            <Card key={r.id} style={{padding:0,borderLeft:`4px solid ${ringColor}`,overflow:"hidden"}}>
+              <button onClick={()=>setExpandedId(isOpen?null:r.id)}
+                style={{width:"100%",background:"none",border:"none",padding:"14px 16px",cursor:"pointer",textAlign:"left"}}>
+                <div style={{display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{width:38,height:38,borderRadius:10,background:T.blueL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
+                    {SUBJECT_ICONS[r.subject]||"📝"}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:14,color:T.text,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.testTitle}</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <Badge color={T.blue}>{r.subject}</Badge>
+                      <Badge color={T.textM}>✅ {r.correctCount} · ❌ {r.wrongCount} · ⏭ {r.skippedCount}</Badge>
+                    </div>
+                  </div>
+                  <CircularProgress percent={r.percentage} size={52} strokeWidth={5} color={ringColor}>
+                    <div style={{textAlign:"center"}}>
+                      <div style={{fontSize:12,fontWeight:900,color:T.text}}>{r.percentage}%</div>
+                      <div style={{fontSize:8,color:T.textM}}>{r.score}/{r.totalMarks}</div>
+                    </div>
+                  </CircularProgress>
+                  <span style={{fontSize:13,color:T.textL,flexShrink:0,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
                 </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:700,fontSize:14,color:T.text,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.testTitle}</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    <Badge color={T.blue}>{r.subject}</Badge>
-                    <Badge color={T.textM}>✅ {r.correctCount} · ❌ {r.wrongCount} · ⏭ {r.skippedCount}</Badge>
+              </button>
+
+              {isOpen && (
+                <div style={{padding:"4px 16px 16px",borderTop:`1px solid ${T.border}`}}>
+                  <div style={{display:"grid",gap:8,marginTop:12}}>
+                    {(r.answers||[]).map((a,i)=>(
+                      <div key={i} style={{
+                        padding:"10px 12px",borderRadius:10,
+                        background:a.correct?T.success+"0d":a.selectedIndex===null?T.bg:T.error+"0d",
+                        borderLeft:`3px solid ${a.correct?T.success:a.selectedIndex===null?"#94a3b8":T.error}`,
+                      }}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:11,fontWeight:700,color:T.textM}}>Q{i+1}</span>
+                          <span style={{fontSize:11,fontWeight:700,color:a.correct?T.success:a.selectedIndex===null?T.textL:T.error}}>
+                            {a.correct?"✅ Correct":a.selectedIndex===null?"⏭ Skipped":"❌ Wrong"}
+                          </span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:6}}>{a.questionText}</div>
+                        {!a.correct && (
+                          <div style={{fontSize:12,color:T.textM}}>
+                            {a.selectedIndex!==null && (
+                              <div style={{color:T.error,marginBottom:2}}>Your answer: {["A","B","C","D"][a.selectedIndex]}. {(a.options||[])[a.selectedIndex]}</div>
+                            )}
+                            <div style={{color:T.success}}>Correct answer: {["A","B","C","D"][a.correctAnswer]}. {(a.options||[])[a.correctAnswer]}</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <CircularProgress percent={r.percentage} size={52} strokeWidth={5} color={ringColor}>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:12,fontWeight:900,color:T.text}}>{r.percentage}%</div>
-                    <div style={{fontSize:8,color:T.textM}}>{r.score}/{r.totalMarks}</div>
-                  </div>
-                </CircularProgress>
-              </div>
+              )}
             </Card>
           );
         })}
@@ -990,6 +1050,7 @@ function ProfileView({ student, myResults, onLogout, onBack }) {
     { icon:"🎯", color:"#8b5cf6", bg:"#ede9fe", title:`Perfect Score${perfectCount!==1?"s":""}`, sub:`x${perfectCount}`, unlocked: perfectCount>0 },
     { icon:"⭐", color:"#f59e0b", bg:"#fff8e7", title:"Best Score", sub:`${bestScore}%`, unlocked: bestScore>0 },
     { icon:"📚", color:"#1a56db", bg:T.blueL, title:"Subjects", sub:`${subjectCount} explored`, unlocked: subjectCount>0 },
+    { icon:"🔥", color:"#f97316", bg:"#fff3e0", title:`${student.streakCount||0} Day Streak`, sub:"Keep it up!", unlocked: (student.streakCount||0)>0 },
   ];
 
   return (
