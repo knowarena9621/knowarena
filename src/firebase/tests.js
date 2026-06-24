@@ -57,11 +57,11 @@ export async function getTestByShareCode(shareCode) {
  * Question Management after this.
  */
 export async function createTest({
-  title, subject, cls, type, duration, totalMarks,
+  title, subject, cls, type, chapter, duration, totalMarks,
   scheduledAt, instructions, createdBy,
 }) {
   const ref = await addDoc(testsCol, {
-    title, subject, cls: Number(cls), type,
+    title, subject, cls: Number(cls), type, chapter: chapter || "",
     duration: Number(duration), totalMarks: Number(totalMarks),
     scheduledAt: scheduledAt || null,
     instructions: instructions || "",
@@ -126,6 +126,7 @@ export async function duplicateTest(test) {
     subject: test.subject,
     cls: test.cls,
     type: test.type,
+    chapter: test.chapter || "",
     duration: test.duration,
     totalMarks: test.totalMarks,
     scheduledAt: null,
